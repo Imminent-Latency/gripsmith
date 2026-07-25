@@ -20,10 +20,17 @@ import { getManifold } from '../utils/geometry/manifoldModule';
  */
 type WorkerRequest =
   | { kind: 'pattern'; job: PatternJob }
-  | { kind: 'inlay'; job: InlayJob };
+  | { kind: 'inlay'; job: InlayJob }
+  | { kind: 'warmup' };
 
 self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
+  // Warm-up only needs the wasm module resident; it deliberately posts nothing back so
+  // the client's single-in-flight pump is untouched.
+  if (req.kind === 'warmup') {
+    try { await getManifold(); } catch (err) { console.error('[geometryWorker] warmup failed:', err); }
+    return;
+  }
   try {
     const wasm = await getManifold();
     if (req.kind === 'pattern') {

@@ -1,6 +1,7 @@
 import type { ManifoldToplevel } from 'manifold-3d';
 import { SerializedShape, SerializedGeometry, geometryTransferables } from './serialize';
 import { ManifoldOps, M } from './manifoldOps';
+import { inlayStackLevel } from './inlayLayering';
 
 /**
  * Pure inlay generator (Manifold). Extrudes each inlay shape, bakes its per-item /
@@ -44,6 +45,8 @@ export interface InlayPart {
   name: string;
   geometry: SerializedGeometry;
   color: string;
+  /** Paint-stack level, for the coplanar decal layering in inlayLayering.ts. */
+  stackLevel: number;
   castShadow?: boolean;
   receiveShadow?: boolean;
 }
@@ -70,21 +73,18 @@ export function generateInlay(job: InlayJob, wasm: ManifoldToplevel): InlayResul
   try {
     // Shared cutters (built once, reused for every item — the legacy code rebuilt these
     // per shape). Depths mirror the legacy inlay effect.
+    // Cutter contours are decimated to CUTTER_TOLERANCE and cached across jobs — the base
+    // outline and its holes are unchanged by inlay transform edits, which are what actually
+    // trigger regeneration. The inlay shapes themselves stay bit-exact.
     let holeSolid: M | null = null;
     let outlineSolid: M | null = null;
     if (hasHoles) {
-      const cs = ops.csFromShapes(job.holeShapes);
-      if (cs) {
-        const holeDepth = job.thickness + job.cutterExtra + 20;
-        holeSolid = ops.track(ops.track(Manifold.extrude(cs, holeDepth)).translate(0, 0, -10));
-      }
+      const holeDepth = job.thickness + job.cutterExtra + 20;
+      holeSolid = ops.cachedCutterSolid(job.holeShapes, { height: holeDepth, translateZ: -10 });
     }
     if (hasClip) {
-      const cs = ops.csFromShapes(job.filledCutoutShapes);
-      if (cs) {
-        const cutterDepth = job.thickness + job.cutterExtra + 5;
-        outlineSolid = ops.track(Manifold.extrude(cs, cutterDepth));
-      }
+      const cutterDepth = job.thickness + job.cutterExtra + 5;
+      outlineSolid = ops.cachedCutterSolid(job.filledCutoutShapes, { height: cutterDepth });
     }
 
     for (const item of job.items) {
@@ -116,6 +116,7 @@ export function generateInlay(job: InlayJob, wasm: ManifoldToplevel): InlayResul
               name: `Inlay_${item.id}_${tileIdx}_${shapeIdx}`,
               geometry: ops.serializeMesh(solid, true),
               color: sh.color,
+              stackLevel: inlayStackLevel(item.itemIndex, shapeIdx),
               castShadow: true,
               receiveShadow: true,
             });

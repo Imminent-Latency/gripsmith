@@ -413,16 +413,40 @@ const ModelViewer: React.FC<ModelViewerProps> = ({
         </div>
       )}
 
+      {/*
+        Depth precision for the inlay decal stack.
+
+        The model stacks surfaces microns apart: an inlay clears the base by 0.001mm, and inlay
+        sub-shapes clear each other by 0.002mm — except past the 21st, where they are EXACTLY
+        coplanar (see inlayLayering.ts). Perspective depth precision goes as
+        z^2 / (near * 2^24), so the original near=0.1 gave ~0.45mm per depth step at the default
+        ~866mm camera distance — some 450x coarser than the separation — and the inlay tore into
+        speckle. Raising `near` to 20 brings that to ~0.002mm, and it is the near plane rather
+        than `far` that dominates, so shortening far barely matters by comparison.
+
+        Deliberately NOT using logarithmicDepthBuffer, which looks like the obvious fix here:
+        it makes three.js write gl_FragDepth in the fragment shader, and an explicitly written
+        fragment depth REPLACES the rasteriser's depth — the very value glPolygonOffset adjusts.
+        Enabling it silently disables polygonOffset, which is the only thing that can order the
+        exactly-coplanar shapes. Verified directly: with log depth on, even a 100000-unit offset
+        had no effect at all.
+
+        OrbitControls below carries a minDistance so the raised near plane cannot clip the model.
+      */}
       <Canvas shadows>
         <OrthographicCamera makeDefault={cameraType === 'orthographic'} position={[0, -1, 1000]} near={-2000} far={2000} up={[0, 0, 1]} />
-        <PerspectiveCamera makeDefault={cameraType === 'perspective'} position={[500, -500, 500]} near={0.1} far={5000} up={[0, 0, 1]} fov={45} />
+        <PerspectiveCamera makeDefault={cameraType === 'perspective'} position={[500, -500, 500]} near={20} far={4000} up={[0, 0, 1]} fov={45} />
         
         {showFps && <FpsTracker fpsRef={fpsRef as React.RefObject<HTMLDivElement>} />}
         <ScreenshotManager triggerRef={captureRef} size={size} />
         <CameraRig viewState={viewState} size={size} setCameraType={setCameraType} />
-        <OrbitControls 
+        <OrbitControls
             ref={orbitRef}
-            makeDefault 
+            makeDefault
+            // Keeps the camera outside the perspective near plane (20mm) so raising it for
+            // depth precision can never clip the model. A ~300mm pad fills the viewport at
+            // ~280mm, so 40mm still allows a very close inspection.
+            minDistance={40}
             mouseButtons={{
                 LEFT: THREE.MOUSE.ROTATE,
                 MIDDLE: THREE.MOUSE.PAN,

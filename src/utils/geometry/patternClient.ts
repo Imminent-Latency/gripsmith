@@ -83,6 +83,17 @@ class GeometryWorkerClient {
     };
   }
 
+  /**
+   * Spin up the worker and compile/initialise the Manifold wasm module ahead of time.
+   *
+   * Without this, the first settings change pays for worker startup plus wasm compilation
+   * and `setup()` on top of its own generation, which is exactly the moment the app feels
+   * slowest. Called once at startup while the user is still reading the UI.
+   */
+  warmUp() {
+    this.ensureWorker().postMessage({ kind: 'warmup' });
+  }
+
   submitPattern(job: PatternJob, cb: (r: PatternResult) => void): { cancel: () => void } {
     const transfer =
       job.patternUnit.kind === 'geometry' ? geometryTransferables(job.patternUnit.geometry) : [];

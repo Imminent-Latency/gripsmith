@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { InlayResult } from './inlayPipeline';
 import { deserializeGeometry } from './serialize';
+import { applyInlayLayering } from './inlayLayering';
 
 /**
  * Main-thread application of an InlayResult: replace the fast unclipped placeholders
@@ -45,13 +46,14 @@ export function applyInlayResult(
       ctx.inlayOpacity,
       ctx.wireframeInlay,
     ) as THREE.MeshStandardMaterial;
-    // Match the legacy inlay material: nudge against the base to avoid Z-fighting.
-    mat.polygonOffset = true;
-    mat.polygonOffsetFactor = -1;
-    mat.polygonOffsetUnits = -1;
 
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = part.name;
+    // Draw order + depth bias for coplanar decals — see inlayLayering.ts.
+    applyInlayLayering(mesh, mat, part.stackLevel);
+    // Flag shapes that track the base colour so a base-colour change can be applied as a
+    // material update instead of re-extruding and re-clipping every inlay.
+    mesh.userData.baseColored = part.color === 'base';
     if (part.castShadow) mesh.castShadow = true;
     if (part.receiveShadow) mesh.receiveShadow = true;
     inlayGroup.add(mesh);

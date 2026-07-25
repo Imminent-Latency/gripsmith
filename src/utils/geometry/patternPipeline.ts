@@ -113,6 +113,7 @@ export function generatePattern(job: PatternJob, wasm: ManifoldToplevel): Patter
 
   // Extrude shapes into a solid tall enough to span the whole model in Z (through-cutter).
   const spanHeight = thickness + Math.max(patternMaxHeight || 0, maxInlayExtend, 100) + 100;
+  /** Per-job span cutter (tracked). Used for contours that change with every edit. */
   const spanExtrude = (cs: CS): M => track(track(Manifold.extrude(cs, spanHeight * 2)).translate(0, 0, -spanHeight));
 
   const basicPart = (name: string, m: M, colorHex: number, opacity: number): MeshPart => ({
@@ -131,7 +132,8 @@ export function generatePattern(job: PatternJob, wasm: ManifoldToplevel): Patter
     // ---- A. Unit solid ----
     let unit: M | null = null;
     if (job.patternUnit.kind === 'geometry') {
-      unit = ops.manifoldFromGeometry(job.patternUnit.geometry); // throws if the STL is not watertight
+      // Cached: the same STL is re-used across every settings change. Throws if not watertight.
+      unit = ops.cachedManifoldFromGeometry(job.patternUnit.geometry);
     } else {
       const cs = ops.csFromShapes(job.patternUnit.shapes, 'EvenOdd');
       if (cs) unit = track(Manifold.extrude(cs, 1));
@@ -237,10 +239,10 @@ export function generatePattern(job: PatternJob, wasm: ManifoldToplevel): Patter
 
     // 3a. Exclusions (subtract), with optional inclusion carve-outs.
     if (hasExclusions) {
-      let exCS = ops.csFromShapes(job.exclusionShapes);
+      let exCS = ops.simplifiedCs(job.exclusionShapes);
       if (exCS) {
         if (job.inclusionShapes.length > 0) {
-          const inCS = ops.csFromShapes(job.inclusionShapes);
+          const inCS = ops.simplifiedCs(job.inclusionShapes);
           if (inCS) exCS = track(exCS.subtract(inCS));
         }
         const exM = spanExtrude(exCS);
@@ -254,13 +256,12 @@ export function generatePattern(job: PatternJob, wasm: ManifoldToplevel): Patter
 
     // 3b. Clip to outline (intersect), with optional erosion margin.
     if (hasClipping) {
-      let cutCS = ops.csFromShapes(job.filledCutoutShapes);
-      if (cutCS) {
-        if (patternMargin && Math.abs(patternMargin) > 0.001) {
-          cutCS = track(cutCS.offset(-patternMargin, 'Miter', 2));
-        }
-        const cutterDepth = thickness + Math.max(maxPatternHeight, maxInlayExtend) + 5;
-        const cutter = track(Manifold.extrude(cutCS, cutterDepth));
+      const cutterDepth = thickness + Math.max(maxPatternHeight, maxInlayExtend) + 5;
+      const erode = patternMargin && Math.abs(patternMargin) > 0.001 ? -patternMargin : 0;
+      // Cached: the base outline and margin are unchanged by most edits, and this is the
+      // single most expensive cutter in the pipeline.
+      const cutter = ops.cachedCutterSolid(job.filledCutoutShapes, { height: cutterDepth, offset: erode });
+      if (cutter) {
         if (job.debugPattern) {
           const waste = track(result.subtract(cutter));
           if (waste.numTri() > 0) parts.push(basicPart('Debug_Pattern_Waste', waste, 0x0000ff, 0.5));
@@ -270,18 +271,75 @@ export function generatePattern(job: PatternJob, wasm: ManifoldToplevel): Patter
       }
     }
 
-    // 3c. Colored masks — 2D layering (subtract upper masks in CrossSection space).
+    // 3c. Holes (subtract), with optional margin expansion.
+    if (hasHoles) {
+      const dilate = holeMode === 'margin' && patternMargin && Math.abs(patternMargin) > 0.001 ? patternMargin : 0;
+      // Cached: base holes come from the outline and are stable across edits.
+      const holeM = ops.cachedCutterSolid(job.holeShapes, {
+        height: spanHeight * 2, translateZ: -spanHeight, offset: dilate,
+      });
+      if (holeM) {
+        if (job.debugHole) {
+          const waste = track(result.intersect(holeM));
+          if (waste.numTri() > 0) parts.push(basicPart('Debug_Hole_Waste_Pattern', waste, 0xff0000, 0.5));
+        }
+        result = track(result.subtract(holeM));
+        if (job.debugHole) parts.push(basicPart('Debug_Hole_Cutter', holeM, 0xff0000, 0.3));
+      }
+    }
+
+    // 3d. Max-height cut — subtract a big box above the cut plane.
+    if (hasHeightCut) {
+      const cutStart = thickness + patternMaxHeight!;
+      const cutHeight = maxPatternHeight + 1000;
+      const boxCS = track(CrossSection.square([10000, 10000], true));
+      const boxM = track(track(Manifold.extrude(boxCS, cutHeight)).translate(0, 0, cutStart));
+      result = track(result.subtract(boxM));
+    }
+
+    /**
+     * 3e. Colored masks — 2D layering (subtract upper masks in CrossSection space).
+     *
+     * Runs LAST, after the hole and max-height cuts, because the masked regions are carved
+     * out of `result` and shipped as their own meshes. Splitting them off before those cuts
+     * left them uncut: a recolour inlay over a base hole produced geometry floating across
+     * the hole, and a max-height limit didn't clip the recoloured tiles.
+     *
+     * The main pattern is unaffected by the move — it ends up as
+     * result \ holes \ box \ masks either way, and set difference is order independent.
+     */
     if (hasMasks) {
-      const maskCSs = job.maskShapes.map((m) => ops.csFromShapes([m.shape]));
+      // Per-job, never cached: a traced recolour inlay can carry ~100 sub-shapes.
+      const maskCSs = job.maskShapes.map((m) => ops.simplifiedCs([m.shape]));
+
+      // Each mask shows only where no later mask covers it. Subtracting the later masks one
+      // at a time is O(n^2) boolean ops (~4200 for a 92-shape traced inlay); since
+      // A - B - C == A - (B | C), one suffix union per index gives the same regions in O(n).
+      const upperUnion: (CS | null)[] = new Array(maskCSs.length).fill(null);
+      for (let i = maskCSs.length - 2; i >= 0; i--) {
+        const above = maskCSs[i + 1];
+        const prev = upperUnion[i + 1];
+        if (!above) upperUnion[i] = prev;
+        else if (!prev) upperUnion[i] = above;
+        else upperUnion[i] = track(CrossSection.union([above, prev]));
+      }
+
+      // Union of every mask, needed anyway to cut the masked area out of the main pattern.
+      const allCS = ops.simplifiedCs(job.maskShapes.map((m) => m.shape));
+      const allM = allCS ? spanExtrude(allCS) : null;
+
+      // Every mask region lies inside that union, so P & Mi == (P & Munion) & Mi. Doing the
+      // union intersection once lets each per-mask boolean run against a far smaller solid
+      // than the full tiled pattern — same regions, much less work per mask.
+      const maskedTotal = allM ? track(result.intersect(allM)) : result;
+
       job.maskShapes.forEach((m, idx) => {
         let myCS = maskCSs[idx];
         if (!myCS) return;
-        for (let j = idx + 1; j < maskCSs.length; j++) {
-          const up = maskCSs[j];
-          if (up) myCS = track(myCS!.subtract(up));
-        }
+        const above = upperUnion[idx];
+        if (above) myCS = track(myCS.subtract(above));
         const maskM = spanExtrude(myCS);
-        const maskedPart = track(result.intersect(maskM));
+        const maskedPart = track(maskedTotal.intersect(maskM));
         if (maskedPart.numTri() > 0) {
           parts.push({
             name: `Pattern_Masked_${idx}_${m.color}`,
@@ -293,34 +351,7 @@ export function generatePattern(job: PatternJob, wasm: ManifoldToplevel): Patter
           });
         }
       });
-      const allCS = ops.csFromShapes(job.maskShapes.map((m) => m.shape));
-      if (allCS) result = track(result.subtract(spanExtrude(allCS)));
-    }
-
-    // 3d. Holes (subtract), with optional margin expansion.
-    if (hasHoles) {
-      let holeCS = ops.csFromShapes(job.holeShapes);
-      if (holeCS) {
-        if (holeMode === 'margin' && patternMargin && Math.abs(patternMargin) > 0.001) {
-          holeCS = track(holeCS.offset(patternMargin, 'Miter', 2));
-        }
-        const holeM = spanExtrude(holeCS);
-        if (job.debugHole) {
-          const waste = track(result.intersect(holeM));
-          if (waste.numTri() > 0) parts.push(basicPart('Debug_Hole_Waste_Pattern', waste, 0xff0000, 0.5));
-        }
-        result = track(result.subtract(holeM));
-        if (job.debugHole) parts.push(basicPart('Debug_Hole_Cutter', holeM, 0xff0000, 0.3));
-      }
-    }
-
-    // 3e. Max-height cut — subtract a big box above the cut plane.
-    if (hasHeightCut) {
-      const cutStart = thickness + patternMaxHeight!;
-      const cutHeight = maxPatternHeight + 1000;
-      const boxCS = track(CrossSection.square([10000, 10000], true));
-      const boxM = track(track(Manifold.extrude(boxCS, cutHeight)).translate(0, 0, cutStart));
-      result = track(result.subtract(boxM));
+      if (allM) result = track(result.subtract(allM));
     }
 
     // 4. Final pattern mesh

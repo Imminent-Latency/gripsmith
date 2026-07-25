@@ -66,7 +66,8 @@ export const getGeometryBounds = (geometry: THREE.BufferGeometry) => {
 
 
 
-const isPointInShape = (p: THREE.Vector2, shape: THREE.Shape): boolean => {
+/** Reference scalar implementation. Kept as the correctness oracle for `pointInIndex`. */
+export const isPointInShape = (p: THREE.Vector2, shape: THREE.Shape): boolean => {
     const points = shape.getPoints();
     let inside = false;
     for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
@@ -78,6 +79,170 @@ const isPointInShape = (p: THREE.Vector2, shape: THREE.Shape): boolean => {
         if (intersect) inside = !inside;
     }
     return inside;
+};
+
+/**
+ * Y-bucketed edge index for a shape's outer contour.
+ *
+ * Tiling issues thousands of containment / clearance queries against the same few
+ * outlines, and a DXF grip outline is routinely ~5k points — so the naive form
+ * (`shape.getPoints()` per query, then a full scan of every edge) re-materialises the
+ * whole point list and walks all 5k edges tens of thousands of times.
+ *
+ * This precomputes the contour once into flat typed arrays and buckets each edge by the
+ * Y range it spans. Both queries below then only touch the buckets covering the query's
+ * Y range, which is exact rather than approximate:
+ *  - Crossing parity only changes on edges straddling `p.y`, so edges outside that
+ *    bucket cannot alter the result.
+ *  - A segment closer than `margin` must span some Y within `p.y ± margin`, so edges
+ *    outside that band cannot be the nearest one.
+ * The per-edge arithmetic is kept character-for-character identical to the scalar
+ * versions above, so results are bit-identical — this is purely less work, not different work.
+ */
+export interface PolyIndex {
+    xs: Float64Array;
+    ys: Float64Array;
+    n: number;
+    minX: number; minY: number; maxX: number; maxY: number;
+    /** Edge ids grouped by Y bucket; edge k spans points[k] -> points[(k+1) % n]. */
+    bucketStart: Int32Array;
+    bucketEdges: Int32Array;
+    nBuckets: number;
+    invBucketH: number;
+}
+
+export const buildPolyIndex = (shape: THREE.Shape): PolyIndex => {
+    const pts = shape.getPoints();
+    const n = pts.length;
+    const xs = new Float64Array(n);
+    const ys = new Float64Array(n);
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let i = 0; i < n; i++) {
+        const x = pts[i].x, y = pts[i].y;
+        xs[i] = x; ys[i] = y;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+    }
+
+    // One bucket per ~8 edges, clamped — enough to make each bucket small without
+    // the bookkeeping dominating for simple shapes.
+    const nBuckets = n < 32 ? 1 : Math.min(2048, Math.max(1, Math.ceil(n / 8)));
+    const height = maxY - minY;
+    const invBucketH = height > 0 ? nBuckets / height : 0;
+
+    const bucketOf = (y: number) => {
+        if (invBucketH === 0) return 0;
+        const b = Math.floor((y - minY) * invBucketH);
+        return b < 0 ? 0 : b >= nBuckets ? nBuckets - 1 : b;
+    };
+
+    // Counting sort: pass 1 counts edges per bucket, pass 2 fills.
+    const counts = new Int32Array(nBuckets + 1);
+    for (let k = 0; k < n; k++) {
+        const y0 = ys[k], y1 = ys[(k + 1) % n];
+        const lo = bucketOf(y0 < y1 ? y0 : y1);
+        const hi = bucketOf(y0 < y1 ? y1 : y0);
+        for (let b = lo; b <= hi; b++) counts[b + 1]++;
+    }
+    for (let b = 0; b < nBuckets; b++) counts[b + 1] += counts[b];
+    const bucketStart = counts;
+    const bucketEdges = new Int32Array(bucketStart[nBuckets]);
+    const cursor = new Int32Array(nBuckets);
+    for (let k = 0; k < n; k++) {
+        const y0 = ys[k], y1 = ys[(k + 1) % n];
+        const lo = bucketOf(y0 < y1 ? y0 : y1);
+        const hi = bucketOf(y0 < y1 ? y1 : y0);
+        for (let b = lo; b <= hi; b++) bucketEdges[bucketStart[b] + cursor[b]++] = k;
+    }
+
+    return { xs, ys, n, minX, minY, maxX, maxY, bucketStart, bucketEdges, nBuckets, invBucketH };
+};
+
+/** Per-run index cache. Shapes are treated as immutable for the duration of one call. */
+const indexFor = (cache: Map<THREE.Shape, PolyIndex>, shape: THREE.Shape): PolyIndex => {
+    let idx = cache.get(shape);
+    if (!idx) { idx = buildPolyIndex(shape); cache.set(shape, idx); }
+    return idx;
+};
+
+const bucketIndex = (idx: PolyIndex, y: number): number => {
+    if (idx.invBucketH === 0) return 0;
+    const b = Math.floor((y - idx.minY) * idx.invBucketH);
+    return b < 0 ? 0 : b >= idx.nBuckets ? idx.nBuckets - 1 : b;
+};
+
+/**
+ * Indexed equivalent of isPointInShape. A point outside the contour's bounding box is
+ * never inside: beyond maxX no crossing test can pass, before minX the straddling-edge
+ * count of a closed contour is even, and outside the Y range nothing straddles at all.
+ */
+export const pointInIndex = (px: number, py: number, idx: PolyIndex): boolean => {
+    if (py < idx.minY || py > idx.maxY || px < idx.minX || px > idx.maxX) return false;
+    const { xs, ys, n, bucketEdges } = idx;
+    const b = bucketIndex(idx, py);
+    const start = idx.bucketStart[b];
+    const end = idx.bucketStart[b + 1];
+    let inside = false;
+    for (let e = start; e < end; e++) {
+        const k = bucketEdges[e];
+        // Edge k runs points[k] -> points[k+1]; the scalar loop visits it as (j, i)
+        // with j = k, i = k + 1, so xi/yi are the *second* endpoint.
+        const i = (k + 1) % n;
+        const xi = xs[i], yi = ys[i];
+        const xj = xs[k], yj = ys[k];
+        const intersect = ((yi > py) !== (yj > py)) &&
+            (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+};
+
+/**
+ * True when every edge of the contour is at least `margin` away from the point — the
+ * only thing the tiling margin test actually needs. Equivalent to
+ * `getDistanceToShape(p, shape) >= margin` (squared distances are compared, then a
+ * single monotonic sqrt at the end selects the same nearest edge).
+ */
+export const isClearOfIndex = (px: number, py: number, idx: PolyIndex, margin: number): boolean => {
+    const { xs, ys, n, bucketEdges } = idx;
+    const bLo = bucketIndex(idx, py - margin);
+    const bHi = bucketIndex(idx, py + margin);
+    let minD2 = Infinity;
+    for (let b = bLo; b <= bHi; b++) {
+        const start = idx.bucketStart[b];
+        const end = idx.bucketStart[b + 1];
+        for (let e = start; e < end; e++) {
+            const k = bucketEdges[e];
+            const i = (k + 1) % n;
+            const x1 = xs[k], y1 = ys[k];
+            const x2 = xs[i], y2 = ys[i];
+            const ex = x2 - x1, ey = y2 - y1;
+            const l2 = ex * ex + ey * ey;
+            let d2: number;
+            if (l2 === 0) {
+                const dx = px - x1, dy = py - y1;
+                d2 = dx * dx + dy * dy;
+            } else {
+                let t = ((px - x1) * ex + (py - y1) * ey) / l2;
+                t = t < 0 ? 0 : t > 1 ? 1 : t;
+                const dx = px - (x1 + t * ex);
+                const dy = py - (y1 + t * ey);
+                d2 = dx * dx + dy * dy;
+            }
+            if (d2 < minD2) {
+                minD2 = d2;
+                // The minimum only shrinks, so once one edge is inside the margin the
+                // answer is settled. Compare via sqrt (not margin²) to keep the exact
+                // same rounding as the scalar `dist >= margin` test.
+                if (Math.sqrt(minD2) < margin) return false;
+            }
+        }
+    }
+    // Buckets outside the band can only hold edges farther than `margin`, so the
+    // banded minimum decides the predicate exactly.
+    return Math.sqrt(minD2) >= margin;
 };
 
 /**
@@ -137,93 +302,96 @@ export const generateTilePositions = (
 
     const positions: TileInstance[] = [];
 
-    // Pre-calculate Bounding Boxes AND Points for Avoid Shapes
-    const avoidBounds: THREE.Box2[] = [];
-    const avoidPointsCache: THREE.Vector2[][] = [];
+    // Contour indices are built once per shape per run and reused across every candidate
+    // position (see PolyIndex): the contours don't change while we place tiles.
+    const idxCache = new Map<THREE.Shape, PolyIndex>();
 
+    // Pre-calculate Bounding Boxes AND Points for Avoid Shapes
+    const avoidIdx: PolyIndex[] = [];
     if (avoidShapes && avoidShapes.length > 0) {
-        avoidShapes.forEach(shape => {
-            const b = new THREE.Box2();
-            const pts = shape.getPoints();
-            pts.forEach(p => b.expandByPoint(p));
-            avoidBounds.push(b);
-            avoidPointsCache.push(pts);
-        });
+        avoidShapes.forEach(shape => { avoidIdx.push(indexFor(idxCache, shape)); });
+    }
+    const boundaryIdx: PolyIndex[] = [];
+    if (boundaryShapes && boundaryShapes.length > 0) {
+        boundaryShapes.forEach(shape => { boundaryIdx.push(indexFor(idxCache, shape)); });
+    }
+    const exclusionIdx: PolyIndex[] = [];
+    if (exclusionShapes && exclusionShapes.length > 0) {
+        exclusionShapes.forEach(shape => { exclusionIdx.push(indexFor(idxCache, shape)); });
+    }
+    const inclusionIdx: PolyIndex[] = [];
+    if (inclusionShapes && inclusionShapes.length > 0) {
+        inclusionShapes.forEach(shape => { inclusionIdx.push(indexFor(idxCache, shape)); });
     }
 
-    // Buffer for edge checking
-    // Unused variables removed for cleanup
-
-    // Bounds Size (for random)
-    // const spanW = (endX - startX);
-    // const spanH = (endY - startY);
+    // Reused scratch for the 5 probe points (centre + corners) so a dense grid doesn't
+    // allocate 5 Vector2 per candidate.
+    const tpx = new Float64Array(5);
+    const tpy = new Float64Array(5);
 
     // --- Helper for Validity Check (Shape/Bounds) ---
     const checkPosition = (px: number, py: number): boolean => {
-        const center = new THREE.Vector2(px, py);
         const halfW = tileWidth / 2;
         const halfH = tileHeight / 2;
 
         // Use 5 test points (Center + Corners) to determine containment
-        const testPoints = [
-            center,
-            new THREE.Vector2(px - halfW, py - halfH),
-            new THREE.Vector2(px + halfW, py - halfH),
-            new THREE.Vector2(px + halfW, py + halfH),
-            new THREE.Vector2(px - halfW, py + halfH)
-        ];
+        tpx[0] = px;         tpy[0] = py;
+        tpx[1] = px - halfW; tpy[1] = py - halfH;
+        tpx[2] = px + halfW; tpy[2] = py - halfH;
+        tpx[3] = px + halfW; tpy[3] = py + halfH;
+        tpx[4] = px - halfW; tpy[4] = py + halfH;
+        const nTest = 5;
 
         // 0. Check Avoid Zones (Strict Removal)
-        if (avoidShapes && avoidShapes.length > 0) {
+        if (avoidIdx.length > 0) {
             // Check 1: Bounding Box Intersection (Fast & Catch-All for "Hole Inside Tile")
-            const tileBox = new THREE.Box2(
-                new THREE.Vector2(px - halfW, py - halfH),
-                new THREE.Vector2(px + halfW, py + halfH)
-            );
+            const tMinX0 = px - halfW, tMaxX0 = px + halfW;
+            const tMinY0 = py - halfH, tMaxY0 = py + halfH;
 
-            for (let i = 0; i < avoidBounds.length; i++) {
-                if (tileBox.intersectsBox(avoidBounds[i])) {
-                    // Possible Overlap. Do Detailed Checks.
+            for (let i = 0; i < avoidIdx.length; i++) {
+                const ai = avoidIdx[i];
+                // THREE.Box2.intersectsBox semantics (inclusive on touching edges).
+                if (ai.maxX < tMinX0 || ai.minX > tMaxX0 || ai.maxY < tMinY0 || ai.minY > tMaxY0) continue;
+                // Possible Overlap. Do Detailed Checks.
 
-                    // Check A: Is Tile inside Shape? (Tile vertices in Shape)
-                    // We check all 5 test points against this specific shape
-                    // (Loop optimization: check only this shape 'i', not all shapes)
-                    for (const pt of testPoints) {
-                        if (isPointInShape(pt, avoidShapes[i])) return false;
-                    }
-
-                    // Check B: Is Shape inside Tile? (Shape vertices in Tile)
-                    // This handles thin shapes traversing a tile, or small shapes inside a tile.
-                    const shapePts = avoidPointsCache[i];
-                    for (const sp of shapePts) {
-                        if (tileBox.containsPoint(sp)) return false;
-                    }
-
-                    // Note: This still misses "Cross" intersection where NO vertices are inside each other.
-                    // But for dense grids and typical shapes, this covers 99% of cases better than BBox alone.
+                // Check A: Is Tile inside Shape? (Tile vertices in Shape)
+                for (let t = 0; t < nTest; t++) {
+                    if (pointInIndex(tpx[t], tpy[t], ai)) return false;
                 }
+
+                // Check B: Is Shape inside Tile? (Shape vertices in Tile)
+                // This handles thin shapes traversing a tile, or small shapes inside a tile.
+                const axs = ai.xs, ays = ai.ys;
+                for (let s = 0; s < ai.n; s++) {
+                    const sx = axs[s], sy = ays[s];
+                    if (sx >= tMinX0 && sx <= tMaxX0 && sy >= tMinY0 && sy <= tMaxY0) return false;
+                }
+
+                // Note: This still misses "Cross" intersection where NO vertices are inside each other.
+                // But for dense grids and typical shapes, this covers 99% of cases better than BBox alone.
             }
         }
 
         // 1. Check Exclusion Zones
-        if (exclusionShapes && exclusionShapes.length > 0) {
+        if (exclusionIdx.length > 0) {
             let pointsFullyExcluded = 0;
 
-            for (const pt of testPoints) {
+            for (let t = 0; t < nTest; t++) {
+                const ptX = tpx[t], ptY = tpy[t];
                 let isPtExcluded = false;
 
                 // Must be inside ANY exclusion shape
-                for (const shape of exclusionShapes) {
-                    if (isPointInShape(pt, shape)) {
+                for (let s = 0; s < exclusionIdx.length; s++) {
+                    if (pointInIndex(ptX, ptY, exclusionIdx[s])) {
                         isPtExcluded = true;
                         break;
                     }
                 }
 
                 // But NOT inside ANY inclusion shape (rescue)
-                if (isPtExcluded && inclusionShapes && inclusionShapes.length > 0) {
-                    for (const shape of inclusionShapes) {
-                        if (isPointInShape(pt, shape)) {
+                if (isPtExcluded && inclusionIdx.length > 0) {
+                    for (let s = 0; s < inclusionIdx.length; s++) {
+                        if (pointInIndex(ptX, ptY, inclusionIdx[s])) {
                             isPtExcluded = false;
                             break;
                         }
@@ -235,20 +403,21 @@ export const generateTilePositions = (
 
             // ONLY exclude if ALL points are in the exclusion zone.
             // If even one point is outside (partial overlap), we KEEP it (to be cut by CSG later).
-            if (pointsFullyExcluded === testPoints.length) return false;
+            if (pointsFullyExcluded === nTest) return false;
         }
 
-        if (boundaryShapes && boundaryShapes.length > 0) {
+        if (boundaryIdx.length > 0) {
             let validCount = 0;
-            for (const p of testPoints) {
+            for (let t = 0; t < nTest; t++) {
+                const ptX = tpx[t], ptY = tpy[t];
                 let pValid = false;
                 // Must be inside ANY shape
-                for (const shape of boundaryShapes) {
-                    if (isPointInShape(p, shape)) {
+                for (let s = 0; s < boundaryIdx.length; s++) {
+                    const bi = boundaryIdx[s];
+                    if (pointInIndex(ptX, ptY, bi)) {
                         // Check Margin
                         if (margin > 0) {
-                            const dist = getDistanceToShape(p, shape);
-                            if (dist >= margin) {
+                            if (isClearOfIndex(ptX, ptY, bi, margin)) {
                                 pValid = true;
                                 break;
                             }
@@ -265,7 +434,7 @@ export const generateTilePositions = (
             if (allowPartial) {
                 return validCount > 0;
             } else {
-                return validCount === testPoints.length;
+                return validCount === nTest;
             }
         } else {
             // Box Check (Bounds)
@@ -289,6 +458,8 @@ export const generateTilePositions = (
     };
 
     // --- Helper for Rotation ---
+    const alignCenter = new THREE.Vector2();
+    bounds.getCenter(alignCenter);
     const getRotation = (c: number, r: number, x: number, y: number): number => {
         if (orientation === 'random') return Math.random() * Math.PI * 2;
         if (orientation === 'alternate') {
@@ -297,9 +468,7 @@ export const generateTilePositions = (
         }
         if (orientation === 'aligned') {
             // Tangential to Center
-            const center = new THREE.Vector2();
-            bounds.getCenter(center);
-            const angle = Math.atan2(y - center.y, x - center.x);
+            const angle = Math.atan2(y - alignCenter.y, x - alignCenter.x);
             return angle + Math.PI / 2;
         }
         return 0;

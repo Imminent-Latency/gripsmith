@@ -8,6 +8,7 @@ import { applyPatternResult, cleanupPatternObjects, ApplyContext } from '../util
 import { applyInlayResult, InlayApplyContext } from '../utils/geometry/applyInlayResult';
 import { geometryWorkerClient } from '../utils/geometry/patternClient';
 import { serializeShape, serializeShapes, serializeGeometry } from '../utils/geometry/serialize';
+import { applyInlayLayering, inlayStackLevel } from '../utils/geometry/inlayLayering';
 
 import { InlayItem } from '../types/schemas';
 
@@ -94,9 +95,28 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
   previewInlay = null,
   } = props;
   const localGroupRef = useRef<THREE.Group>(null);
-  
+
   // Expose ref
   React.useImperativeHandle(ref, () => localGroupRef.current!, []);
+
+  /**
+   * Material-only props, mirrored into a ref.
+   *
+   * Worker results arrive asynchronously and build fresh meshes from an apply context.
+   * If that context captured these values when the job was submitted, a colour or opacity
+   * change made while the job was in flight would be lost: the lightweight material effect
+   * below runs immediately on the change, but the meshes it should have updated don't exist
+   * yet. Reading through a ref means whatever comes back is always styled with the values
+   * currently on screen.
+   */
+  const latest = useRef({ color, patternColor, baseOpacity, inlayOpacity, patternOpacity, wireframeBase, wireframeInlay, wireframePattern });
+  // Updated in a commit-phase effect rather than during render: mutating a ref while
+  // rendering is not safe under the React Compiler. Worker results arrive long after the
+  // commit, so this is always current by the time anything reads it. Declared first so the
+  // effects below observe the fresh values.
+  useEffect(() => {
+    latest.current = { color, patternColor, baseOpacity, inlayOpacity, patternOpacity, wireframeBase, wireframeInlay, wireframePattern };
+  }, [color, patternColor, baseOpacity, inlayOpacity, patternOpacity, wireframeBase, wireframeInlay, wireframePattern]);
 
   // --- Gradient Map for Toon Shading ---
   const gradientMap = useMemo(() => {
@@ -439,21 +459,20 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
         geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
     }
 
-    const mat = createMaterial(color, false, 1.0, wireframeBase);
+    const mat = createMaterial(latest.current.color, false, 1.0, latest.current.wireframeBase);
     // Ensure DoubleSide if mirroring (negative scale) creates lighting artifacts
     mat.side = THREE.DoubleSide;
 
     const mesh = new THREE.Mesh(geometry, mat);
     mesh.name = 'Base';
-    
-    // Position/Scale/Rotation
-    // Apply Mirror as Scale X
+
+    // Position/Scale/Rotation. Read from props (not deps): a fresh mesh must start out
+    // with the current orientation, and the transform effect below keeps it in sync
+    // afterwards without paying for another extrude.
     const sX = baseOutlineMirror ? -1 : 1;
     mesh.scale.set(sX, 1, 1);
-    
-    // Apply Rotation
     mesh.rotation.z = baseOutlineRotation * (Math.PI / 180);
-    
+
     // Centering Logic
     // If we rotate/mirror, the center of rotation is (0,0).
     // cutoutShapes are centered by 'centerShapes' in uploader, so (0,0) is centroid.
@@ -463,9 +482,22 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
     mesh.castShadow = true;
     group.add(mesh);
 
-    // NOTE: wireframeBase is intentionally NOT a dependency — it is a material-only
-    // toggle handled by the lightweight material effect below to avoid rebuilding geometry.
-  }, [size, thickness, color, cutoutShapes, baseOutlineRotation, baseOutlineMirror, displayMode]);
+    // NOTE: deliberately narrow deps. `color` / `wireframeBase` are material-only and are
+    // handled by the lightweight material effect below; `baseOutlineRotation` /
+    // `baseOutlineMirror` are a mesh transform handled by the next effect. Extruding this
+    // outline costs ~20ms for a typical DXF grip (thousands of points), so rebuilding it
+    // for a colour pick or a rotation nudge is pure stall.
+  }, [size, thickness, cutoutShapes, displayMode]);
+
+  // --- 1b. Base transform (mirror / rotation) — no geometry rebuild ---
+  useEffect(() => {
+    const group = localGroupRef.current;
+    if (!group) return;
+    const mesh = group.getObjectByName('Base');
+    if (!mesh) return;
+    mesh.scale.set(baseOutlineMirror ? -1 : 1, 1, 1);
+    mesh.rotation.z = baseOutlineRotation * (Math.PI / 180);
+  }, [baseOutlineRotation, baseOutlineMirror]);
 
 
   // --- 2. Inlays Construction ---
@@ -587,11 +619,6 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
                     wireframeInlay
                 );
                 
-                // Fix Z-fighting with base
-                mat.polygonOffset = true;
-                mat.polygonOffsetFactor = -1;
-                mat.polygonOffsetUnits = -1;
-    
                  // Transform Shape if Mirror is required
                 let shapeToExtrude = rawShape;
                 if (item.mirror) {
@@ -641,6 +668,10 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
                   // Fast Path
                   const mesh = new THREE.Mesh(geo, mat);
                   mesh.name = `Inlay_${item.id}_${tileIdx}_${shapeIdx}`;
+                  // See applyInlayResult: lets a base-colour change be a material update.
+                  mesh.userData.baseColored = shapeColor === 'base';
+                  // Coplanar decal layering — see inlayLayering.ts.
+                  applyInlayLayering(mesh, mat, inlayStackLevel(i, shapeIdx));
                   mesh.castShadow = true;
                  mesh.receiveShadow = true;
 
@@ -688,9 +719,9 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
 
     const inlayCtx: InlayApplyContext = {
         makeMaterial: (c, t, o, w) => createMaterial(c, t, o, w),
-        resolveColor: (c) => (c === 'base' ? color : c),
-        inlayOpacity: inlayOpacity ?? 1.0,
-        wireframeInlay: !!wireframeInlay,
+        resolveColor: (c) => (c === 'base' ? latest.current.color : c),
+        get inlayOpacity() { return latest.current.inlayOpacity ?? 1.0; },
+        get wireframeInlay() { return !!latest.current.wireframeInlay; },
     };
 
     const processedIds = jobItems.map(j => j.id);
@@ -702,9 +733,13 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
     });
     return () => { cancelled = true; handle.cancel(); };
 
-    // NOTE: wireframeInlay is intentionally NOT a dependency — material-only toggle
-    // handled by the lightweight material effect below (no geometry rebuild).
-  }, [inlayItems, thickness, color, clipToOutline, filledCutoutShapes, holeShapes, displayMode, isDragging, debugShowHoleCutter, debugShowInlayCutter, previewInlay, inlayOpacity]);
+    // NOTE: wireframeInlay and inlayOpacity are intentionally NOT dependencies — they are
+    // material-only and handled by the lightweight material effect below. Opacity in
+    // particular is a live slider, and rebuilding every inlay extrusion plus dispatching a
+    // worker job on each tick was the most expensive no-op in the component.
+    // `color` is also excluded: shapes set to 'base' are tagged via userData.baseColored
+    // and recoloured by the material effect instead of rebuilt.
+  }, [inlayItems, thickness, clipToOutline, filledCutoutShapes, holeShapes, displayMode, isDragging, debugShowHoleCutter, debugShowInlayCutter, previewInlay]);
 
     // Subscribe to Event Bus for high-performance live preview updates
     // This allows us to move meshes during drag without React re-renders or regenerating geometry
@@ -827,10 +862,12 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
 
     const applyCtx: ApplyContext = {
         makeMaterial: (c, t, o, w) => createMaterial(c, t, o, w),
-        resolveColor: (c) => (c === 'base' ? color : c),
-        patternColor,
-        patternOpacity: patternOpacity ?? 1.0,
-        wireframePattern: !!wireframePattern,
+        resolveColor: (c) => (c === 'base' ? latest.current.color : c),
+        // Read through the ref so a colour/opacity change made while the job was in flight
+        // is reflected in the meshes the result builds.
+        get patternColor() { return latest.current.patternColor; },
+        get patternOpacity() { return latest.current.patternOpacity ?? 1.0; },
+        get wireframePattern() { return !!latest.current.wireframePattern; },
         isDragging,
         debugShowPatternCutter: !!debugShowPatternCutter,
         debugShowHoleCutter: !!debugShowHoleCutter,
@@ -903,13 +940,16 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
          }
      });
 
-     // Fast Update Base Opacity / Wireframe
+     // Fast Update Base Colour / Opacity / Wireframe (material-only, no re-extrude)
      const baseMesh = group.getObjectByName('Base');
      if (baseMesh && baseMesh instanceof THREE.Mesh) {
          const mat = baseMesh.material as THREE.MeshStandardMaterial;
-         if (mat && typeof baseOpacity === 'number') {
-             mat.opacity = baseOpacity;
-             mat.transparent = baseOpacity < 1.0;
+         if (mat) {
+             if (mat.color) mat.color.set(color);
+             if (typeof baseOpacity === 'number') {
+                 mat.opacity = baseOpacity;
+                 mat.transparent = baseOpacity < 1.0;
+             }
              mat.wireframe = !!wireframeBase;
              mat.needsUpdate = true;
          }
@@ -921,9 +961,13 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
      group.traverse(child => {
          if (child.name.startsWith('Inlay_') && child instanceof THREE.Mesh) {
             const mat = child.material as THREE.MeshStandardMaterial;
-            if (mat && typeof inlayOpacity === 'number') {
-                mat.opacity = inlayOpacity;
-                mat.transparent = inlayOpacity < 1.0;
+            if (mat) {
+                if (typeof inlayOpacity === 'number') {
+                    mat.opacity = inlayOpacity;
+                    mat.transparent = inlayOpacity < 1.0;
+                }
+                // Shapes set to 'base' follow the base colour without a rebuild.
+                if (child.userData.baseColored && mat.color) mat.color.set(color);
                 mat.wireframe = !!wireframeInlay;
                 mat.needsUpdate = true;
             }
@@ -967,7 +1011,7 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
          }
      });
 
-  }, [debugShowPatternCutter, debugShowHoleCutter, debugShowInlayCutter, patternOpacity, baseOpacity, inlayOpacity, patternColor, wireframePattern, wireframeBase, wireframeInlay, isDragging]);
+  }, [debugShowPatternCutter, debugShowHoleCutter, debugShowInlayCutter, patternOpacity, baseOpacity, inlayOpacity, patternColor, color, wireframePattern, wireframeBase, wireframeInlay, isDragging]);
 
   return <group ref={localGroupRef} />;
 });

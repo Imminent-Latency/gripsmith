@@ -8,7 +8,11 @@ import {
   calculateInlayScale,
   calculateInlayOffset,
   generateTilePositions,
-  tileShapes
+  tileShapes,
+  isPointInShape,
+  buildPolyIndex,
+  pointInIndex,
+  isClearOfIndex
 } from './patternUtils';
 
 const createSquare = (size: number, x = 0, y = 0): THREE.Shape => {
@@ -20,6 +24,79 @@ const createSquare = (size: number, x = 0, y = 0): THREE.Shape => {
   shape.closePath();
   return shape;
 };
+
+describe('PolyIndex matches the scalar reference exactly', () => {
+  /** Shapes chosen to stress the index: concave, self-shadowing, and curve-sampled. */
+  const shapes: [string, THREE.Shape][] = [
+    ['square', createSquare(20, -10, -10)],
+    ['thin-sliver', new THREE.Shape([
+      new THREE.Vector2(-50, -0.4), new THREE.Vector2(50, -0.4),
+      new THREE.Vector2(50, 0.4), new THREE.Vector2(-50, 0.4),
+    ])],
+    ['concave-C', new THREE.Shape([
+      new THREE.Vector2(-20, -20), new THREE.Vector2(20, -20), new THREE.Vector2(20, -10),
+      new THREE.Vector2(-8, -10), new THREE.Vector2(-8, 10), new THREE.Vector2(20, 10),
+      new THREE.Vector2(20, 20), new THREE.Vector2(-20, 20),
+    ])],
+    ['star', (() => {
+      const pts: THREE.Vector2[] = [];
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * Math.PI * 2;
+        const r = i % 2 === 0 ? 30 : 12;
+        pts.push(new THREE.Vector2(Math.cos(a) * r, Math.sin(a) * r));
+      }
+      return new THREE.Shape(pts);
+    })()],
+    ['dense-circle', (() => {
+      const c = new THREE.Shape();
+      c.absarc(0, 0, 25, 0, Math.PI * 2, false);
+      return new THREE.Shape(c.getPoints(400));
+    })()],
+    ['degenerate-repeats', new THREE.Shape([
+      new THREE.Vector2(-5, -5), new THREE.Vector2(-5, -5), new THREE.Vector2(5, -5),
+      new THREE.Vector2(5, -5), new THREE.Vector2(5, 5), new THREE.Vector2(-5, 5),
+    ])],
+  ];
+
+  for (const [name, shape] of shapes) {
+    it(`pointInIndex === isPointInShape for ${name}`, () => {
+      const idx = buildPolyIndex(shape);
+      let inside = 0;
+      // Grid sweep plus vertex-aligned probes (the numerically nastiest cases).
+      const probes: THREE.Vector2[] = [];
+      for (let x = -60; x <= 60; x += 1.7) {
+        for (let y = -60; y <= 60; y += 1.3) probes.push(new THREE.Vector2(x, y));
+      }
+      for (const p of shape.getPoints()) {
+        probes.push(p.clone(), new THREE.Vector2(p.x, p.y + 1e-9), new THREE.Vector2(p.x + 1e-9, p.y));
+      }
+      for (const p of probes) {
+        const ref = isPointInShape(p, shape);
+        const fast = pointInIndex(p.x, p.y, idx);
+        if (ref) inside++;
+        expect(fast, `at (${p.x},${p.y})`).toBe(ref);
+      }
+      expect(inside).toBeGreaterThan(0); // the sweep actually hit the shape
+    });
+
+    it(`isClearOfIndex === (getDistanceToShape >= margin) for ${name}`, () => {
+      const idx = buildPolyIndex(shape);
+      for (const margin of [0.05, 0.5, 3, 11]) {
+        let clear = 0;
+        for (let x = -60; x <= 60; x += 2.3) {
+          for (let y = -60; y <= 60; y += 1.9) {
+            const p = new THREE.Vector2(x, y);
+            const ref = getDistanceToShape(p, shape) >= margin;
+            const fast = isClearOfIndex(x, y, idx, margin);
+            if (ref) clear++;
+            expect(fast, `margin=${margin} at (${x},${y})`).toBe(ref);
+          }
+        }
+        expect(clear).toBeGreaterThan(0);
+      }
+    });
+  }
+});
 
 describe('patternUtils utility', () => {
   describe('getShapesBounds', () => {

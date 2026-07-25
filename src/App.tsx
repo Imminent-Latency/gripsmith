@@ -8,6 +8,7 @@ import { BaseSettings, InlaySettings, GeometrySettings } from './types/schemas';
 
 import { defaultBaseSettings, defaultInlaySettings, defaultGeometrySettings } from './utils/schemaDefaults';
 import WelcomeModal from "./components/WelcomeModal";
+import { geometryWorkerClient } from './utils/geometry/patternClient';
 
 const App = () => {
   // Base Settings
@@ -35,6 +36,12 @@ const App = () => {
   const [activeTab, setActiveTab] = useState<'base' | 'inlay' | 'geometry'>('base');
 
   const meshRef = useRef<THREE.Group>(null);
+
+  // Compile the geometry worker's wasm module up front, so the first settings change
+  // doesn't also pay for worker startup and Manifold initialisation.
+  React.useEffect(() => {
+    geometryWorkerClient.warmUp();
+  }, []);
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
