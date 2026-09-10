@@ -19,9 +19,11 @@ Homebrew must be on `PATH` for `pnpm`/`node`/`npx` (`git` is Apple Git at `/usr/
 
 **Gate after every commit:** tests green, build exit 0, **lint exit 0**, and the `tsc` error list **diffed** against a
 `/tmp/tsc-before-$PHASE.txt` captured once per phase
-(`… --noEmit 2>&1 | grep 'error TS' | sed -E 's/\(([0-9]+),([0-9]+)\)//' | sort`). **Gate on the diff, never the count** —
+(`… --noEmit 2>&1 | grep 'error TS' | sed -E 's/\(([0-9]+),([0-9]+)\)//' | LC_ALL=C sort`). **Gate on the diff, never the count** —
 it is the only gate that catches a param declared and never bound. **Strip `(line,col)`** or any commit inserting a line
-above a pre-existing error false-fails; **suffix the temp file with the phase** because wave 1 runs four agents at once.
+above a pre-existing error false-fails; **suffix the temp file with the phase** because wave 1 runs four agents at once; **pin the sort locale (`LC_ALL=C`)** —
+`en_US` and `C` collate case differently (`Controls.tsx` sorts before `controls/` under `C`, after it under `en_US`), so a
+baseline sorted in another shell false-fails on ordering alone.
 
 ## The specification is binding
 

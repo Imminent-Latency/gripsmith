@@ -118,7 +118,7 @@ Read in this order. Everything lives under `/Users/ldev/workspaces/imminentlaten
 | 06 | [`06-flat-export.md`](docs/06-flat-export.md) | The fork's second physical output. **06a** exports the pad outline (SVG + R12 DXF) **on the main thread — no worker, no core change** (`docs/06-flat-export.md:12`, `:423`, `:508`); **06b** exports the pattern footprint through a read-only worker contour channel. | 06a ready · **M4a**. 06b gated on M3 · **M4b**. Its §10 amendment is **adopted**. |
 | 07 | [`07-text-image-sources.md`](docs/07-text-image-sources.md) | Wrap `traceImage` as a `ShapeSource`, extract the opentype producer out of the paint modal into `src/utils/text/`, self-host the 9 preset fonts, route both producers into the pattern lane, and close the persistence hole for shapes with no source file. | Draft · **M5**. Its §4.5 zip-asset mechanism is **the winner of D3**. |
 | 08 | [`08-determinism-and-seeding.md`](docs/08-determinism-and-seeding.md) | The mulberry32 PRNG, `seed` on `GeometrySettingsSchema` + `InlayItemSchema` + `PatternJob`, and the tiler's 14th parameter. Removes the last three `Math.random()` calls. | Ready · **M2** · blocked by nothing |
-| — | [`IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md) | **The execution order of record.** 126 commits across 12 phases (P0–P11), each with its files, its verify command and its commit message; the decisions of record (D1–D4 plus editorial D5); **20 cross-cutting rules**; the merge order and its twelve shared-file collision points (the table has 12 rows; the plan's prose says "ten" at `:375` and "eleven" at `:839`); risks; deferred work. Not a specification — a sequence. | Written 2026-09-04 |
+| — | [`IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md) | **The execution order of record.** 126 commits across 12 phases (P0–P11), each with its files, its verify command and its commit message; the decisions of record (D1–D4 plus editorial D5); **20 cross-cutting rules**; the merge order and its twelve shared-file collision points (the table has 12 rows; the plan's prose says "ten" at `:379` and "eleven" at `:843`); risks; deferred work. Not a specification — a sequence. | Written 2026-09-04 |
 | — | [`_source/00-recon-report.md`](docs/_source/00-recon-report.md) | **The verified evidence base.** §1 is the 12 findings that changed the plan; §2 is the exhaustive verdict table (the thing to grep); §3 is what the code actually does. **Read the errata block at the top.** | Ground truth. **Do not hand-edit.** |
 | — | [`_source/baseline-verification.md`](docs/_source/baseline-verification.md) | Upstream's install / test / typecheck / build state as received, plus three config findings (`base` unset, React Compiler on, coverage allowlist). | Do not hand-edit. |
 | — | [`_source/00-architecture.original.md`](docs/_source/00-architecture.original.md) | Revision 1, preserved. Its §1 Vision and §3 Goals survive; **most of its technical assertions were wrong. Do not cite it.** | Historical only. |
@@ -147,8 +147,8 @@ sed -n '1,60p'   docs/_source/00-recon-report.md  # at minimum the errata block 
 **2. Read the plan.**
 
 ```sh
-sed -n '1,394p'   docs/IMPLEMENTATION-PLAN.md     # decisions of record, 20 rules, critical path, merge order (:372)
-sed -n '395,882p' docs/IMPLEMENTATION-PLAN.md     # the phases (from :395), risks, deferred, appendix — 882 lines total
+sed -n '1,398p'   docs/IMPLEMENTATION-PLAN.md     # decisions of record, 20 rules, critical path, merge order (:376)
+sed -n '399,886p' docs/IMPLEMENTATION-PLAN.md     # the phases (from :399), risks, deferred, appendix — 886 lines; re-derive the split with grep -n '^## The phases'
 ```
 
 Read, in this order: "The decisions of record", the **20 cross-cutting rules**, "Critical path and
@@ -163,7 +163,7 @@ git var GIT_AUTHOR_IDENT               # must echo Liam Thompson <liamstar@gmail
                                        # other clone set user.name/user.email FIRST — unset, git invents <user>@<host>.local
 export PHASE=p0                        # per phase, per agent — wave 1 runs four agents concurrently
 npx tsc -p tsconfig.app.json --noEmit 2>&1 | grep 'error TS' \
-  | sed -E 's/\(([0-9]+),([0-9]+)\)//' | sort > /tmp/tsc-before-$PHASE.txt    # 18 lines
+  | sed -E 's/\(([0-9]+),([0-9]+)\)//' | LC_ALL=C sort > /tmp/tsc-before-$PHASE.txt    # 18 lines; pin the locale on both sides
 ```
 
 P0 is four serial commits (`IMPLEMENTATION-PLAN.md` §P0): write D1's and D2's carve-outs into root §5.2,
@@ -239,8 +239,9 @@ like. The full set of 20 is in `IMPLEMENTATION-PLAN.md` §"Cross-cutting rules".
    esbuild and never runs `tsc`; there is no `typecheck` script. **Gate on a `diff` against a captured error
    list, never on a count** — the count is 18 today and `baseline-verification.md` originally said 19. Capture
    `/tmp/tsc-before-$PHASE.txt` once per phase (per agent — wave 1 runs four) and diff after every commit,
-   **with `(line,col)` stripped from both sides**, or a commit that inserts a line above a pre-existing
-   error false-fails.
+   **with `(line,col)` stripped from both sides and both sides sorted under `LC_ALL=C`** — a commit that
+   inserts a line above a pre-existing error false-fails the first; a baseline sorted in a shell with a different
+   collation false-fails the second.
 
 7. **The pipeline is extrude → compose → clip, and the clip is conditional.**
    `Manifold.extrude(cs, 1)` at `src/utils/geometry/patternPipeline.ts:139`, `Manifold.compose(instances)` at
@@ -392,7 +393,8 @@ The standard gate after every commit (`IMPLEMENTATION-PLAN.md` §"The standard g
 green, `pnpm build` exit 0, `pnpm lint` exit 0, and the `tsc` error list **diffed** against
 `/tmp/tsc-before-$PHASE.txt` captured once per phase. Gate on the diff, never on a count — and **strip
 `(line,col)` from both sides** (`sed -E 's/\(([0-9]+),([0-9]+)\)//'`), or any commit inserting a line above a
-pre-existing error false-fails. The `$PHASE` suffix matters: wave 1 runs four concurrent agents that would
+pre-existing error false-fails; sort both sides with `LC_ALL=C sort`, or a baseline captured in a shell with a different
+collation false-fails on ordering alone. The `$PHASE` suffix matters: wave 1 runs four concurrent agents that would
 otherwise clobber one shared `/tmp` file.
 
 **Xcode license.** `git` on this machine is Apple Git and would not run until the Xcode license was accepted
