@@ -456,7 +456,7 @@ Holes get their own layer so an operator can order the cut inside-first — on v
 
 ### 6.4 Acceptance criteria
 
-Baseline to regress against: **21 files, 162 tests, 4.54 s, all passing** (`docs/_source/baseline-verification.md`). New suites live under `src/utils/export/` and `src/utils/geometry/`, both inside the coverage allowlist (`vite.config.ts:30-35`) — no config edit **for those**. The task-8 UI wiring in `src/components/OutputPanel.tsx` is *outside* that allowlist and reports 0 % silently; see §4.1, where that is stated and accepted. Criterion A7b covers it behaviourally.
+Baseline to regress against: **20 files / 155 tests** after P0 deletes `offsetUtils.test.ts` (−1 file, −7 tests from `docs/_source/baseline-verification.md`). New suites live under `src/utils/export/` and `src/utils/geometry/`, both inside the coverage allowlist (`vite.config.ts:30-35`) — no config edit **for those**. The task-8 UI wiring in `src/components/OutputPanel.tsx` is *outside* that allowlist and reports 0 % silently; see §4.1, where that is stated and accepted. Criterion A7b covers it behaviourally.
 
 **Do not add a typecheck gate.** `npx tsc -p tsconfig.app.json --noEmit` reports **18 pre-existing errors** (root §4.1; `docs/_source/baseline-verification.md`'s "19" is stale), one of them on the export download path at `src/components/OutputPanel.tsx:125` (`DataView<ArrayBufferLike>` not assignable to `BlobPart`). A green typecheck is not available and must not become an implicit criterion.
 
@@ -464,7 +464,7 @@ Baseline to regress against: **21 files, 162 tests, 4.54 s, all passing** (`docs
 
 | # | Criterion |
 |---|---|
-| **A0** | `pnpm test` passes with **0 failures** and a test count **> 162**. |
+| **A0** | `pnpm test` passes with **0 failures** and a test count **> 155** (after deleting the 7 tests in `offsetUtils.test.ts`). |
 | **A1** | `git diff --stat` shows `src/components/Controls.tsx` **untouched**. |
 | **A2** | `git diff src/utils/dxfUtils.ts` is **empty**, and `src/utils/dxfUtils.test.ts` still passes — `generateSVGPath` is byte-identical and its three consumers are unaffected. |
 | **A3** | `writeCutSvg` output, parsed with `DOMParser` under jsdom: the root `<svg>` has `width` and `height` ending in `mm`; `viewBox` width equals the numeric mm width to `1e-6`; `querySelectorAll('path').length` equals outer rings + hole rings; every `d` ends in `Z`; every `<g>` has `fill="none"` and a `stroke` from the §6.2 palette; **`querySelectorAll('[transform]').length === 0`**. |

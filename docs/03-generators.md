@@ -51,7 +51,7 @@ Three facts drive every design decision below:
 ## 3. Non-Goals
 
 - **No new worker kind.** Generators are plain JS with no wasm. Rule 5 costs five edits for a new kind (`src/workers/geometryWorker.ts:21-24`; `src/utils/geometry/patternClient.ts:17`, `:31-32`, `:63`, `:97-105`). Not paid until §8 Q3's measurement says otherwise.
-- **No clipping, offsetting or extrusion re-implementation** (rule 2). The one exception, `insetConvex` (§4.3), is a convex-only inward offset and **is not yet permitted** — rule 2 is unqualified and the parent wins until amended. §8 Q6 is the amendment request; it blocks task 2.
+- **No clipping, offsetting or extrusion re-implementation** (rule 2), except `insetConvex` (§4.3) under the root §5.2 D2 amendment — adopted 2026-09-04 with all four §8 Q6 conditions.
 - **No registry, no param plumbing, no UI.** Doc 02 and doc 04.
 - **No PRNG.** Doc 08. Generators take an injected `rng: () => number`.
 - **No opt-in decimation at `patternPipeline.ts:138`.** The recon's 03 gap table lists it (`core: yes`, effort S). Deferred: the JS-side budget makes it unnecessary, and it is a core edit under §10. Doc 02 §5.2 reaches the same conclusion independently and ships the JS-side alternative, `decimateShapes` in `src/utils/generators/normalize.ts`; root §7 *Performance* is amended to record the deferral. Reopen only if §8 Q3's measurement says the JS budget is insufficient.
@@ -172,7 +172,7 @@ src/utils/generators/
 
 **No `polygonArea` — signed area already ships.** `THREE.ShapeUtils.area(points: THREE.Vector2[])` comes with the `three` dependency and is already used in production at `src/utils/patternUtils.ts:964`, `src/utils/dxfUtils.ts:385`, `:394`, and in tests at `src/utils/dxfUtils.test.ts:66`, `:85`, `:127`, `:151`. *(It is also called at `src/utils/offsetUtils.ts:94`, `:201` — but that module is dead clipper-lib code with zero production importers and is deleted in M0 (root §4.1); it is not evidence of anything.)* `poly.ts` already imports `* as THREE`. Use it directly for Lloyd centroid weighting (§4.6.1 step 3) and for the `insetConvex` collapse test. If a call site holds a flat `[x0,y0,…]` ring rather than `Vector2[]`, write a one-line adapter that maps to `Vector2` and calls `THREE.ShapeUtils.area` — do not write a second area implementation.
 
-**`insetConvex` is a rule-2 exception that is not yet granted — see §8 Q6.** `00-architecture.md` §5.2 rule 2 says without qualification *"Never re-implement clipping, offsetting or extrusion"*, and `00-architecture.md` §10 says the parent wins **until amended**. `insetConvex` is an inward polygon offset in JS, so **task 2 is blocked on @liamstar signing off the amendment requested in §8 Q6.** The technical justification, which Q6's request carries as its conditions: the only polygon offset in the codebase is `CrossSection.offset` at `src/utils/geometry/manifoldOps.ts:151` — worker-only, and reaching it from the main thread would instantiate a second wasm realm (`getManifold` memoizes per realm, `src/utils/geometry/manifoldModule.ts:15`, `:17-27`, so a second realm means a second 541,470-byte compile). `insetConvex` is the *convex* case only: shift each edge's supporting line inward by `d` and intersect consecutive shifted lines. For a convex ring this is exact and cannot self-intersect; the only failure mode is collapse, which is detected (an edge reverses direction, or `THREE.ShapeUtils.area` of the result is ≤ 0) and handled by dropping the ring and counting it in `clamps`. Every Voronoi cell is convex by construction. **`insetConvex` must reject any non-convex input rather than produce garbage** — assert convexity and throw in dev, drop the ring in prod.
+**`insetConvex` is permitted by root §5.2 rule 2's D2 amendment, adopted 2026-09-04 — see §8 Q6.** The technical justification, which Q6's request carries as its conditions: the only polygon offset in the codebase is `CrossSection.offset` at `src/utils/geometry/manifoldOps.ts:151` — worker-only, and reaching it from the main thread would instantiate a second wasm realm (`getManifold` memoizes per realm, `src/utils/geometry/manifoldModule.ts:15`, `:17-27`, so a second realm means a second 541,470-byte compile). `insetConvex` is the *convex* case only: shift each edge's supporting line inward by `d` and intersect consecutive shifted lines. For a convex ring this is exact and cannot self-intersect; the only failure mode is collapse, which is detected (an edge reverses direction, or `THREE.ShapeUtils.area` of the result is ≤ 0) and handled by dropping the ring and counting it in `clamps`. Every Voronoi cell is convex by construction. **`insetConvex` must reject any non-convex input rather than produce garbage** — assert convexity and throw in dev, drop the ring in prod.
 
 ### 4.4 Vertex budget
 
@@ -597,7 +597,7 @@ Each is a command, an assertion, or an observable outcome.
 
 | ID | Criterion |
 |---|---|
-| **AC-1** | `pnpm test` is green and reports **≥ 31 test files** and **≥ 202 tests**, against the recorded baseline of 21 files / 162 tests (`docs/_source/baseline-verification.md:16`). The 10 new files are the ones named in §7: `generators/poly.test.ts`, `generators/index.test.ts`, `generators/voronoi/delaunay.spike.test.ts`, `generators/voronoi/voronoi.test.ts`, `generators/voronoi/voronoi.pipeline.test.ts`, `generators/truchet/truchet.test.ts`, `generators/noiseContour/contour.spike.test.ts`, `generators/noiseContour/noiseContour.test.ts`, `generators/lsystem/lsystem.test.ts`, and `src/utils/patternUtils.tileCap.test.ts`. The ≥ 40 new tests are T1–T4 ×4 generators (16), T5–T13 (9), T14 ×3 (3), T15 ×3 (3), `poly.test.ts` ≥ 8, the two spikes ≥ 5. **No existing test file is modified** — `git diff --stat -- '*.test.ts' '*.test.tsx'` lists only new files. |
+| **AC-1** | `pnpm test` is green and reports **≥ 31 test files** and **≥ 202 tests**, against the post-M0 baseline of 20 files / 155 tests (after deleting `offsetUtils.test.ts`, −1 file and −7 tests from `docs/_source/baseline-verification.md:16`). The 10 new files are the ones named in §7: `generators/poly.test.ts`, `generators/index.test.ts`, `generators/voronoi/delaunay.spike.test.ts`, `generators/voronoi/voronoi.test.ts`, `generators/voronoi/voronoi.pipeline.test.ts`, `generators/truchet/truchet.test.ts`, `generators/noiseContour/contour.spike.test.ts`, `generators/noiseContour/noiseContour.test.ts`, `generators/lsystem/lsystem.test.ts`, and `src/utils/patternUtils.tileCap.test.ts`. The ≥ 40 new tests are T1–T4 ×4 generators (16), T5–T13 (9), T14 ×3 (3), T15 ×3 (3), `poly.test.ts` ≥ 8, the two spikes ≥ 5. **No existing test file is modified** — `git diff --stat -- '*.test.ts' '*.test.tsx'` lists only new files. |
 | **AC-2** | `grep -rn "Math\.random" src/utils/generators` returns nothing. |
 | **AC-3** | `pnpm build` exits 0 and its printed asset table shows: (a) `dist/assets/index-*.js` gzip **≤ 535 kB** against the 531.65 kB baseline; (b) **at least four additional chunks — one per generator — plus at most one shared helper chunk** carrying `poly`/`budget`/`types`, and none of them is the main `index-*.js`. Five chunks is the expected outcome, not a failure: `poly.ts`, `budget.ts` and `types.ts` are imported by all four dynamic modules and by nothing static, so Rollup emits them as a shared chunk. (c) `grep -ci "delaunay\|delaunator\|createNoise2D\|contours" dist/assets/index-*.js` returns **0** — case-**insensitive**, and matching identifiers that survive minification (`Delaunay`, `Delaunay.from`, `createNoise2D`, `contours`) rather than package names, which do not. This is a **proxy**: minification can rename anything, so (b)'s chunk count is the primary evidence and (c) is the cheap tripwire. (d) `dist/assets/geometryWorker-*.js` is the same size as the baseline's 130.66 kB. |
 | **AC-4** | `grep -rn "absarc\|bezierCurveTo\|quadraticCurveTo\|splineThru\|ellipse(" src/utils/generators` returns nothing — generators emit polylines only (E9). |
@@ -618,7 +618,7 @@ Dependency-ordered; each is one commit. The recon is **done** — every task sta
 | # | Task | Depends on | Done when |
 |---|---|---|---|
 | 1 | Add `d3-delaunay`, `simplex-noise`, `d3-contour` to `package.json:17-41` at **exact** pins (no caret — the manifold caret at `:29` is already a noted reproducibility hazard). Nothing imports them yet. | — | `pnpm install` clean; `pnpm build` gzip unchanged, proving a declared-but-unimported package costs nothing. |
-| 2 | `src/utils/generators/{types,budget,poly}.ts` + `poly.test.ts`. Pure helpers only, zero vendor imports. No `polygonArea` — use `THREE.ShapeUtils.area` (§4.3). | doc 08's PRNG for the `rng` type; **§8 Q6 signed off** before `insetConvex` is written | `poly.test.ts` covers `insetConvex` (square, triangle, collapse case, non-convex rejection), `simplifyRDP`, `stripClosingDuplicate`, `ribbonQuad`, `disc` — ≥ 8 tests. |
+| 2 | `src/utils/generators/{types,budget,poly}.ts` + `poly.test.ts`. Pure helpers only, zero vendor imports. No `polygonArea` — use `THREE.ShapeUtils.area` (§4.3). | doc 08's PRNG for the `rng` type; §8 Q6 amendment adopted 2026-09-04 (D2) | `poly.test.ts` covers `insetConvex` (square, triangle, collapse case, non-convex rejection), `simplifyRDP`, `stripClosingDuplicate`, `ribbonQuad`, `disc` — ≥ 8 tests. |
 | 3 | **d3-delaunay spike, committed as `voronoi/delaunay.spike.test.ts`.** Assert that `voronoi.cellPolygon(0)` returns a ring whose last vertex equals its first, and that a cell clipped to the bounds rectangle is convex. | 1 | The test passes and pins both assumptions §4.6.1 rests on. A version bump that changes either convention now fails loudly. |
 | 4 | `voronoi/voronoi.params.ts` — the zod schema with real `.min()`/`.max()`, every field carrying a **literal** `.default()`. **The first bounded schema in the repo** (`src/types/schemas.ts:10-85` has zero). | 2 | AC-5 for Voronoi; T14 for `gap`. |
 | 5 | `voronoi/voronoi.ts` — sites, Lloyd, diagram, inset, clamp, emit. Budget layer A solves against `VERTEX_BUDGET_NOMINAL` (§4.6.1). | 2, 3, 4 | T1, T2, T3, T4, T6, T7, T12. |
@@ -637,7 +637,7 @@ Dependency-ordered; each is one commit. The recon is **done** — every task sta
 
 ## 8. Open questions
 
-Six. Each has a stated way to settle it. **Q6 is an amendment request that blocks task 2.**
+Six. Each has a stated way to settle it. **Q6 is resolved — adopted 2026-09-04 (D2).**
 
 ### Q1 — What is the real minimum cuttable feature on vinyl grip tape?
 
@@ -669,13 +669,13 @@ The §4.4 vertex ceiling is anchored to the ~5800 ms / 48k-triangle figure in `s
 
 *Settles it:* task 14 — re-run `src/utils/geometry/normals.test.ts:200-217` with `weld()` applied, at 4000 boxes, per `00-architecture.md` §11. If it is not linear, `VERTEX_BUDGET_CEILING` is re-derived from the new measurement and §4.4 updated; the `NOMINAL` figure, which layer A actually targets, moves with it.
 
-### Q6 — Amendment request: does `00-architecture.md` §5.2 rule 2 permit `insetConvex`?
+### Q6 — `insetConvex` amendment — **resolved — adopted 2026-09-04 (D2)**
 
-**This is not a design question; it is a sign-off @liamstar owes before task 2 can be written.** Rule 2 says without qualification *"Never re-implement clipping, offsetting or extrusion."* `insetConvex(ring, d)` (§4.3) is an inward polygon offset implemented in JS. `00-architecture.md` §10 states that where a feature doc conflicts with the parent, **the parent wins until amended**, and §10's read-only-contour-channel block is the worked precedent for how an exception is granted: a named amendment, with adoption date, carrying explicit conditions.
+**Resolved by @liamstar, 2026-09-04.** P0 commit 1 amends root §5.2 rule 2 to permit `insetConvex` under all four conditions below.
 
-The requested amendment, in that style:
+The adopted amendment:
 
-> **Amendment — main-thread convex inset (requested; not yet adopted).**
+> **Amendment — main-thread convex inset (D2, adopted 2026-09-04).**
 >
 > A pure, convex-only inward polygon offset on the main thread is permitted, subject to all four conditions:
 >
@@ -686,7 +686,7 @@ The requested amendment, in that style:
 
 The engineering case for it: the only polygon offset in the codebase is `CrossSection.offset` at `src/utils/geometry/manifoldOps.ts:151`, which is worker-only, and reaching it from the main thread instantiates a second wasm realm — `getManifold` memoizes per realm (`src/utils/geometry/manifoldModule.ts:15`, `:17-27`), so a second realm is a second 541,470-byte compile. The alternative, routing the inset through the existing worker, means a new job kind: five edits under rule 5, which §3 already declares a Non-Goal.
 
-*Settles it:* @liamstar either amends `00-architecture.md` §5.2 rule 2 with the block above, or rejects it — in which case `insetConvex` is deleted and §4.6.1 step 6 is redesigned (the cheapest fallback: scale each cell about its centroid by `1 - gap / (2 * inradius)`, which is approximate, not exact, and breaks T7's `gap - 1e-6` assertion). **Task 2 does not start until this is answered.**
+*Resolution:* @liamstar adopted the amendment on 2026-09-04; P0 commit 1 records it in root §5.2 rule 2. Task 2 may implement `insetConvex` subject to the four conditions above.
 
 ---
 

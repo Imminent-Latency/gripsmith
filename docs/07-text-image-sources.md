@@ -215,13 +215,13 @@ The pipeline already accepts 2D shapes — `buildJob`'s `kind:'shapes'` branch (
 
 **The pattern lane is single-colour.** `buildJob` keeps the shape and drops the wrapper's colour (`ImperativeModel.tsx:833`); the pattern renders in `patternColor` (`src/types/schemas.ts:77`). A 4-band traced image routed here collapses to one colour. That is a product decision, not a bug — §8 Q2.
 
-### 4.5 Persistence for shapes with no source file
+### 4.5 Persistence for source-less and edited-with-a-source shapes — **the adopted mechanism (D3)**
 
-> **Overlap notice — this is one of three competing mechanisms for the same hole.** Doc 04 §4.3.1 proposes `ProjectSchemaV2.shapes.inlayShapes` (inline in `project.json`, keyed by item id); doc 05 §4.3 proposes `InlayItemSchema.editedShapes` (inline, on the item); this section proposes a synthetic `<name>.shapes.json` zip asset. All three edit the same rehydration block at `src/components/Controls.tsx:206-231`, and docs 04 and 05 both declare a `SerializedShapeSchema` **(new)** in `src/types/schemas.ts`. **Only one ships.** Doc 04 §4.3.1 carries the comparison table and owns the single declaration of `SerializedShapeSchema`. Root §6 names this doc's row as the owner of *"persistence for shapes with no source file"* and root §6 phasing puts 07 ahead of 05a, so this section is the **presumptive winner** — but it is a decision @liamstar has not made, and doc 05 §8 Q5 / doc 04 §4.3.1 record it as open. One argument specific to this mechanism, worth weighing: it is the only one that also covers the **pattern** lane (§4.5a); the two inline-JSON mechanisms are inlay-only as drafted.
+> **Adopted by @liamstar, 2026-09-04 (D3).** The synthetic `<name>.shapes.json` zip asset is the sole persistence mechanism, covering source-less shapes and shapes edited after loading a source file. Doc 04's entire `ProjectSchemaV2.shapes` block and doc 05 §4.3's `editedShapes` mechanism are struck. See doc 05 §8 question 6 and doc 04 §4.3.1. Doc 04 task B-1 declares `SerializedShapeSchema` and `PersistedShapeSchema` once in `src/types/schemas.ts`; docs 05 and 07 import the shared schemas. P9 commit 102 uses `PersistedShapeSchema` for each shape-asset element, preserving per-shape colour.
 
 This is the L. The failure is exact and reproducible today: paint an inlay → Export Project → the "Missing Asset Files" dialog lists it (`src/components/Controls.tsx:135-138`, `:143-155`) → export anyway → import → the layer's shapes are the stringified `THREE.Shape.toJSON()` blob that `exportProjectBundle` spread through untouched (`src/utils/projectUtils.ts:48-50`), no zip asset matches its uuid at `src/components/Controls.tsx:208`, and the item is returned unchanged at `:229`. The first `shape.getPoints()` downstream throws.
 
-**Design: give a source-less inlay a synthetic source file.** The zip already is the transport for source bytes; a generated inlay simply needs bytes to put there. Use the wire form that already exists.
+**Design: give a source-less or edited inlay a synthetic source file.** The zip already transports source bytes; use the existing wire form. `ProjectAssets.inlays` has exactly one asset slot per id, so registering the `.shapes.json` asset **supersedes** any original SVG/DXF/STL. The original file is intentionally not retained across export → import; restoring it requires re-uploading. A "Revert to source" feature would require widening the asset model and is out of scope (doc 05 §8 question 2).
 
 ```ts
 // src/utils/sources/shapeAsset.ts       (new — does not exist yet)
@@ -333,7 +333,7 @@ Every existing call site this attaches to.
 
 ### 6.2 Testing (Vitest)
 
-Baseline to regress against: **21 files, 162 tests, all passing, 4.54s** (`docs/_source/baseline-verification.md`). Environment is `jsdom` (`vite.config.ts:26`); coverage `include` already covers everything this doc adds (`:30-35`).
+Baseline to regress against: **20 files / 155 tests** after P0 deletes `offsetUtils.test.ts` (−1 file, −7 tests from `docs/_source/baseline-verification.md`). Environment is `jsdom` (`vite.config.ts:26`); coverage `include` already covers everything this doc adds (`:30-35`).
 
 > **Blocking harness fact, not in the recon report.** `ImageData` is **undefined** in both the Node runtime (verified: `node -e "typeof ImageData"` → `undefined` on v26.5.0) and the configured jsdom environment (verified: `new JSDOM('').window.ImageData` → `undefined`; the `canvas` package is not installed). `traceLayers` constructs `new ImageData(quant, W, H)` inside `buildQuant` at `src/utils/image/traceImage.ts:130`, so **any test of `traceLayers` or `traceImage` throws `ImageData is not defined` today.** This is why the module has no test. Install a 5-line global shim in the test file — `imagetracerjs` duck-types the argument, reading only `.data`, `.width` and `.height` (`node_modules/imagetracerjs/imagetracer_v1.2.6.js:154-155`, `:245`, `:248`) and reassigning `.data` when it is RGB rather than RGBA (`:256`) — so a plain writable class suffices; do **not** add the `canvas` dependency.
 
@@ -361,7 +361,7 @@ Each is a command, an assertion, or a specific observable outcome.
 
 **Regression floor (applies to every task)**
 
-1. `pnpm test` passes with **no fewer than 162 tests** and no previously-passing test modified. New tests only add.
+1. `pnpm test` passes with **no fewer than 155 tests** (after deleting the 7 tests in `offsetUtils.test.ts`) and no previously-passing test modified. New tests only add.
 2. `pnpm build` exits 0.
 3. `grep -rn "generateTextShapesFromOpentype" src/components/` returns **zero** hits. (The name may survive in `src/utils/text/textToShapes.ts`'s docblock; that is not checked either way.)
 

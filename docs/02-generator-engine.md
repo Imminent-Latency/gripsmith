@@ -1,7 +1,7 @@
 # Generator engine — the `ShapeSource` and `Generator` framework
 
 **Doc ID:** `02-generator-engine`
-**Status:** Draft — **blocked on one root-doc decision before task 1.** §3 rule 5 and §4.5 deviate from root §5.2 rule 5, and root §5 is authoritative (`docs/00-architecture.md:225`). @liamstar either amends root §5.2 with the carve-out quoted in §3's rule-5 row or overrules §4.5 and this doc is re-scoped to a fourth worker kind. Everything else is ready to implement.
+**Status:** Ready to implement — D1 adopted 2026-09-04; root §5.2 rule 5 amended by P0 commit 1.
 **Owner:** @liamstar
 **Parent:** [`./00-architecture.md`](./00-architecture.md) — its §5 contracts and §10 derivation rules bind this doc. Where this doc and the root doc conflict, the root doc wins until amended.
 **Evidence base:** `docs/_source/00-recon-report.md` (§1 finding 3, §2 §5-contract-3 / §5-contract-4 / §6-item-2 rows, §3.6, §3.8, §5 "02 — generator engine", §6 M3). Recon is **complete** (root §9); every task below starts from a report finding.
@@ -52,7 +52,7 @@ What is missing is a **producer**: a typed, parameterised, dynamically-imported 
 | **`Polygon`** | **Consumes. Pins, does not extend.** | Emits representation 1, `THREE.Shape` with holes as `.holes: THREE.Path[]` (`src/types/schemas.ts:14`, `:22`, `:67`), optionally wrapped as representation 2, `{ shape: THREE.Shape; color: string }` (`src/utils/shapeLoader.ts:53`). Conversion to the wire form is done **for us** by `serializeShapes` (`src/utils/geometry/serialize.ts:47-50`) at `src/components/ImperativeModel.tsx:836`. **No seventh representation is introduced.** |
 | **`Outline`** | **Reads only, and only outside `produce()`.** | `BaseSettings.cutoutShapes` (`src/types/schemas.ts:14`). It is **not** a parameter of `produce()` — see §4.2. Outline fitting is already a separate step performed downstream by the tiler and the clip (`src/utils/geometry/patternPipeline.ts:168-171`, `:218`, `:269`). |
 | **`ShapeSource`** | **Produces — this doc creates it.** | `ShapeSource` **(new — does not exist yet)** in `src/utils/generators/types.ts` **(new)**. Modelled on `parseShapeFile` (`src/utils/shapeLoader.ts:12`), `traceImage` (`src/utils/image/traceImage.ts:179`) and `SVGPaintModal.onSave` (`src/components/SVGPaintModal.tsx:76`). Output lands in `geometrySettings.patternShapes`, precedent `handlePatternLoaded` (`src/components/controls/GeometryControls.tsx:114-141`). |
-| **`Generator<P>`** | **Produces — this doc creates it.** | `Generator<P>` **(new — does not exist yet)**, `GeneratorEntry` **(new)**, `GeneratorRegistry` **(new)** in `src/utils/generators/` — all three are declared in §4.3, and `GeneratorRegistry` is the alias `readonly GeneratorEntry[]` that annotates the `GENERATOR_REGISTRY` const. Params persist as two new fields on `GeometrySettingsSchema` (`src/types/schemas.ts:66-85`), **each carrying `.default()`** because `getDefaults` is `schema.parse({})` (`src/utils/schemaDefaults.ts:6-8`) and throws otherwise. **Declared divergence — `generateTilePositions`.** Root §5.1's `Generator<P>` row (`docs/00-architecture.md:252`) says `generateTilePositions` (`src/utils/patternUtils.ts:285-299`) "**is** the existing parametric engine to generalise". This doc leaves it untouched: a `Generator` synthesises the **unit** and the existing tiler places it, which is what root §6's doc-02 scope (`docs/00-architecture.md:307` — "produce `THREE.Shape[]` into `patternShapes`") and recon §5's 02 table both call for. Generalising the placer is doc 08's seed work and doc 03's per-generator tile caps, not this doc. Amend root §5.1's wording or overrule this — @liamstar's call. |
+| **`Generator<P>`** | **Produces — this doc creates it.** | `Generator<P>` **(new — does not exist yet)**, `GeneratorEntry` **(new)**, `GeneratorRegistry` **(new)** in `src/utils/generators/` — all three are declared in §4.3, and `GeneratorRegistry` is the alias `readonly GeneratorEntry[]` that annotates the `GENERATOR_REGISTRY` const. Params persist as two new fields on `GeometrySettingsSchema` (`src/types/schemas.ts:66-85`), **each carrying `.default()`** because `getDefaults` is `schema.parse({})` (`src/utils/schemaDefaults.ts:6-8`) and throws otherwise. Resolved 2026-09-04 — root §5.1 amended by P0 commit 1; see D5. |
 | **`DesignState`** | **Extends `ProjectSchemaV1`, additively.** | `ProjectSchemaV1` → `ProjectData` (`src/types/schemas.ts:87-96`). The two new `GeometrySettingsSchema` fields ride the existing bundle path (`src/utils/projectUtils.ts:29-87`) with no export/import edit, **because they are plain JSON**. This is the specific respect in which a generated design beats every other geometry in the app: `patternShapes` is nulled on export (`src/utils/projectUtils.ts:53`), so a generated pattern is the only pattern that comes back **without a source file in the zip**. An STL pattern does come back — but only because its bytes ride the zip as an asset and are re-parsed with `parseShapeFile` on import (`src/components/Controls.tsx:187-197`, recon §3.5 "Import re-hydrates from zip assets"). See §4.7. |
 
 **Rules honoured.**
@@ -63,7 +63,7 @@ What is missing is a **producer**: a typed, parameterised, dynamically-imported 
 | **2** — do not re-implement clip / offset / extrude | Honoured. Nothing here does. |
 | **3** — a persisted tunable lives in a settings schema with `.default()` | Honoured. Both new fields carry `.default()`. |
 | **4** — one seed, persisted | Honoured by deferral. The seed comes from doc 08 / M2; this doc defines none. |
-| **5** — heavy geometry goes in the **existing** worker; no second worker without a stated reason | **Deviated from — and until @liamstar rules, this is a doc-set blocker, not a design note.** Rule 5's default placement is the existing worker; generation runs on the **main thread** instead (§4.5). Rule 5's two *hard* constraints — structured-clone-safe payloads and wasm-realm tracking — are untouched, because no second worker and no fourth job kind are added; what is deviated from is the default placement. Root §5 is authoritative over child docs (`docs/00-architecture.md:225`), so exactly one of two things must happen **before task 1**. **(a)** Root §5.2 rule 5 gains this carve-out, verbatim: *"Polygon synthesis that needs no wasm may run on the main thread, provided the doc states a per-generator time budget and a documented revisit trigger."* §4.5 already satisfies both conditions (50 ms measured around step 4 of `runGenerator`), so this row then reads "Honoured under that amendment" and §4 stands as written. **(b)** The carve-out is refused — then §4.5 is void, along with §4.6 row 2, §6.3 criteria 8–10 and §7 task 7, and this doc is re-scoped to a fourth worker kind at the five-edit cost §4.5 tables. Do not start task 1 under "root wins until amended": that reading makes §4.1, §4.4, §4.5 and §4.6 unimplementable as written. |
+| **5** — heavy geometry goes in the **existing** worker; no second worker without a stated reason | **Honoured under the root §5.2 amendment (D1, adopted 2026-09-04).** Polygon synthesis needs no wasm; §4.5 states the per-generator time budget and 50 ms revisit trigger. Structured-clone-safe payloads and wasm-realm tracking remain required. |
 | **6** — folder isolation; enumerate every shared-file edit | Honoured. The shared-file budget is enumerated in §4.6 and is **eight insertions in four files**. |
 
 ## 4. Design
@@ -129,7 +129,7 @@ export interface ShapeSource {
 }
 ```
 
-**Declared divergence — where `ShapeSource` lives.** Root §5.1's `ShapeSource` row ends *"Define it beside `src/utils/shapeLoader.ts:12`."* This doc places it one level down, in `src/utils/generators/types.ts`. It is still inside the Vitest coverage allowlist `src/utils/**` (`vite.config.ts:30-35`), so nothing is lost on coverage; the gain is that the whole framework is a new folder with no shared file among its modules, which is rule 6's isolation preference. Root §5.1 wins until amended — amend it or overrule this, at @liamstar's call.
+Resolved 2026-09-04 — root §5.1 amended by P0 commit 1; see D5.
 
 Three properties, each forced by the code rather than chosen:
 
@@ -252,7 +252,7 @@ Curves need no check because they cannot survive: `serializeShape` flattens thro
 
 **Decision: generate on the main thread. Do not add a `kind:'generate'` message, and do not create a second worker.**
 
-**This is a declared deviation, not a compliance claim, and it gates task 1.** Root §5.2 rule 5's default placement for geometry work is the *existing* worker; running generation on the main thread satisfies neither that default nor its "second worker with a stated reason" escape hatch. It does keep both of rule 5's hard constraints intact — no new structured-clone payload shape, no second wasm realm to track. The justification is below and the revisit trigger is concrete (50 ms). §3's rule-5 row states the exact carve-out this section needs added to root §5.2 and what becomes void if @liamstar refuses it. **Settle that before task 1**; do not implement §4 while "root wins until amended" still stands, because under that reading §4.1, §4.4, §4.5 and §4.6 are not implementable as written.
+**Adopted under root §5.2 rule 5 (D1, 2026-09-04).** Main-thread polygon synthesis needs no wasm and retains both hard constraints: structured-clone-safe payloads and wasm-realm tracking. The justification and per-generator 50 ms revisit trigger follow.
 
 The alternatives and why they lose:
 
@@ -407,7 +407,7 @@ One inherited UI behaviour to handle deliberately: once `patternShapes` is non-e
 
 ### 6.2 Vitest
 
-All the new *logic* sits under `src/utils/generators/**`, inside the coverage allowlist `src/utils/**` (`vite.config.ts:30-35`). The two exceptions are deliberate and report 0%: `src/components/GeneratorRunner.tsx` (§4.1) and the `GeometryControls` render test's subject, both outside the allowlist, which criterion 8 forbids widening. Baseline to regress against: **21 files, 162 tests, 4.54 s** (`docs/_source/baseline-verification.md`). `patternPipeline.test.ts` passes today, which means **Manifold wasm runs under Vitest/jsdom** — an end-to-end shapes-kind test needs no browser harness. Model the job fixture on `src/utils/geometry/patternPipeline.test.ts:26-46`.
+All the new *logic* sits under `src/utils/generators/**`, inside the coverage allowlist `src/utils/**` (`vite.config.ts:30-35`). The two exceptions are deliberate and report 0%: `src/components/GeneratorRunner.tsx` (§4.1) and the `GeometryControls` render test's subject, both outside the allowlist, which criterion 8 forbids widening. Baseline to regress against: **20 files / 155 tests** after P0 deletes `offsetUtils.test.ts` (−1 file, −7 tests from `docs/_source/baseline-verification.md`). `patternPipeline.test.ts` passes today, which means **Manifold wasm runs under Vitest/jsdom** — an end-to-end shapes-kind test needs no browser harness. Model the job fixture on `src/utils/geometry/patternPipeline.test.ts:26-46`.
 
 Six new files plus one additive extension of a baseline file — the split criterion 1 counts on.
 
@@ -427,7 +427,7 @@ Each is a command, an assertion, or a stated observation.
 
 **Framework**
 
-1. `pnpm test` is green with **at least 27 files** — the 21 baseline files (`docs/_source/baseline-verification.md`) plus the **6 new** files in §6.2's table. The seventh §6.2 row is an *extension* of an existing file and adds no count. The constraint on baseline tests is not "none edited": **the only baseline test file modified is `src/utils/schemaDefaults.test.ts`, and no existing assertion in it is changed or removed** (`git diff src/utils/schemaDefaults.test.ts` shows additions only).
+1. `pnpm test` is green with **at least 26 files** — the 20 post-M0 baseline files (after deleting `offsetUtils.test.ts`, −1 file and −7 tests from `docs/_source/baseline-verification.md`) plus the **6 new** files in §6.2's table. The seventh §6.2 row is an *extension* of an existing file and adds no count. The constraint on baseline tests is not "none edited": **the only baseline test file modified is `src/utils/schemaDefaults.test.ts`, and no existing assertion in it is changed or removed** (`git diff src/utils/schemaDefaults.test.ts` shows additions only).
 2. `pnpm exec tsc -p tsconfig.app.json --noEmit 2>&1 | grep 'src/utils/generators\|GeneratorRunner'` returns **nothing**. (The gate is scoped to new paths: **18** pre-existing errors — root §4.1; `docs/_source/baseline-verification.md`'s "19" is stale — and they are not this doc's to fix.)
 3. `getDefaults(GeometrySettingsSchema)` succeeds and `src/utils/schemaDefaults.test.ts` passes — i.e. both new fields carry `.default()`.
 4. `grep -rn "generatorId\|generatorParams" src/types/schemas.ts` shows exactly two field declarations, each with `.default(`.
@@ -467,7 +467,7 @@ Each is a command, an assertion, or a stated observation.
 
 16. Round trip with no asset. `exportProjectBundle` returns `Promise<void>` — it builds a Blob, clicks a synthetic anchor and revokes the object URL (`src/utils/projectUtils.ts:76-87`) — so the two functions do **not** compose. Capture the Blob by stubbing `URL.createObjectURL`, reusing the harness already written at `src/utils/projectUtils.test.ts:9-29` (`document.createElement` spy plus `global.URL.createObjectURL`), then wrap the captured Blob as a `File` for `importProjectBundle`. Assert: the resulting `geometrySettings` carries the same `generatorId` and a deep-equal `generatorParams`; `patternShapes` is null in `project.json` (`src/utils/projectUtils.ts:53`); the zip carries **no** pattern asset; and the effect regenerates a deep-equal shape list. **Run it twice** — the second time with the pre-import state already holding that exact `generatorId` and `generatorParams`, so the effect key does not move. Regeneration must still happen, which is what the §4.7 emptiness guard buys.
 17. `pnpm build` exits 0 and the chunk list shows a **separate chunk** for each generator module; the main `index-*.js` chunk grows by less than 10 kB over the 1,850.77 kB baseline.
-18. `pnpm test` still reports the 162 baseline tests passing — no upstream expectation changed.
+18. `pnpm test` still reports the 155 post-M0 baseline tests passing (after deleting the 7 tests in `offsetUtils.test.ts`) — no upstream expectation changed.
 
 **Picker and `patternType`**
 
@@ -476,8 +476,6 @@ Each is a command, an assertion, or a stated observation.
 ## 7. Task order
 
 Recon is done (root §9). Each task is one commit; each is independently reviewable and leaves the tree green.
-
-**Task 0 is not a task — it is a decision.** The root §5.2 rule-5 carve-out in §3's rule table is settled by @liamstar, or §4.5 is overruled and this table is re-scoped. Nothing below is implementable until then.
 
 The ordering rule below the dependencies: **the picker (task 9) precedes every observational criterion**, because nothing in tasks 1–8 gives a user any way to set `generatorId` from the UI.
 

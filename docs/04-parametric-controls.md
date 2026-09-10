@@ -285,15 +285,15 @@ The Generate tab shell is this doc's; its **contents** are doc 02's descriptor t
 
 #### 4.3.1 `ProjectSchemaV2` (new) and a discriminator that actually works
 
-> **Overlap notice — three docs propose a mechanism for the same hole, and only one may ship.** "Geometry that has no source file must survive export → import" is scoped in **three** places, with three different mechanisms over the same rehydration block at `src/components/Controls.tsx:206-231`:
+> **D3 resolution — adopted by @liamstar, 2026-09-04.** Doc 07 §4.5's synthetic `<name>.shapes.json` zip asset is the sole mechanism for source-less geometry and edits to an existing source; edited geometry supersedes that source asset.
 >
 > | Doc | Mechanism | Where the bytes live |
 > |---|---|---|
-> | **04** (this §4.3.1/§4.3.2) | `ProjectSchemaV2.shapes.inlayShapes`, keyed by item id | inline in `project.json` |
-> | **05** §4.3 | `InlayItemSchema.editedShapes` | inline in `project.json`, on the item |
-> | **07** §4.5 | `serializeShapeAsset` → a synthetic `<name>.shapes.json` zip entry | a zip asset, alongside real source files |
+> | **04** (this §4.3.1/§4.3.2) | **STRUCK (D3):** all three `ProjectSchemaV2.shapes` keys — `cutoutShapes`, `patternShapes`, `inlayShapes` | no inline geometry in `project.json` |
+> | **05** §4.3 | **STRUCK (D3):** `InlayItemSchema.editedShapes` | replaced by doc 07 §4.5 |
+> | **07** §4.5 | **ADOPTED (D3):** `serializeShapeAsset` → a synthetic `<name>.shapes.json` zip entry | a zip asset, superseding any original source for that inlay id |
 >
-> All three declare a **`SerializedShapeSchema` (new)** in `src/types/schemas.ts` — docs 04 and 05 by that exact name. **They must not all be built.** Root §6 names persistence-for-source-less-shapes as doc 07's "real blocker" and `ProjectSchemaV2` as doc 04's; root §8 M5's *"a painted or traced inlay survives export → import"* bullet is claimed by both 05 §4.3 and 07's header. **This is an unresolved design decision for @liamstar**, recorded as an open question in all three docs. Whichever mechanism is chosen, `SerializedShapeSchema` is declared **once**, here in §4.3.1, and the other docs import it. Until it is settled, do not implement §4.3.1's `shapes.inlayShapes` block, doc 05 §4.3, or doc 07 §4.5 — build the one that wins.
+> **Declare `SerializedShapeSchema` exactly once**, here in `src/types/schemas.ts` (task B-1); docs 05 and 07 import it. **Keep `PersistedShapeSchema`:** its consumer moves from the struck `shapes.inlayShapes` block to P9 commit 102's shape-asset element; doc 07 imports it rather than redeclaring `{ shape, color? }`. `ProjectSchemaV2`'s remaining keys, the discriminator, migration and live-shape leak fix still ship.
 
 ```ts
 // src/types/schemas.ts — appended after ProjectSchemaV1 (:87-93). V1 is NOT modified.
@@ -322,12 +322,12 @@ export const ProjectSchemaV2 = z.object({                // (new)
   base:     BaseSettingsSchema,
   inlay:    InlaySettingsSchema,
   geometry: GeometrySettingsSchema,
-  /** JSON-safe geometry. Absent = fall back to the zip assets, as V1 does. */
-  shapes: z.object({
-    cutoutShapes:  z.array(SerializedShapeSchema).nullable().default(null),
-    patternShapes: z.array(SerializedShapeSchema).nullable().default(null),
-    inlayShapes:   z.record(z.string(), z.array(PersistedShapeSchema)).default({}),
-  }).default({ cutoutShapes: null, patternShapes: null, inlayShapes: {} }),
+  // STRUCK (D3): all three inline-geometry keys; doc 07 §4.5 owns their zip assets.
+  // shapes: z.object({
+  //   cutoutShapes:  z.array(SerializedShapeSchema).nullable().default(null),
+  //   patternShapes: z.array(SerializedShapeSchema).nullable().default(null),
+  //   inlayShapes:   z.record(z.string(), z.array(PersistedShapeSchema)).default({}),
+  // }).default({ cutoutShapes: null, patternShapes: null, inlayShapes: {} }),
 });
 
 export type ProjectV2 = z.infer<typeof ProjectSchemaV2>;  // (new)
@@ -362,7 +362,7 @@ const VersionProbe = z.object({ version: z.number() });  // (new) — strips eve
 
 export const PROJECT_MIGRATIONS: Record<number, (d: any) => any> = {  // (new)
   1: (v1) => ({ ...v1, version: 2,
-                shapes: { cutoutShapes: null, patternShapes: null, inlayShapes: {} } }),
+                /* STRUCK (D3): shapes defaults; geometry remains in zip assets. */ }),
 };
 
 export function migrateProject(raw: unknown): MigrateResult { /* … */ }   // (new)
@@ -382,10 +382,10 @@ Order of operations, and why each step exists:
 | Line today | Change |
 |---|---|
 | `:41` `version: 1` | `version: 2` |
-| **new sibling key after `:53`** | **the real edit.** Insert the `shapes: { cutoutShapes, patternShapes, inlayShapes }` block described in §4.3.1 into the `projectData` literal (`:40-55`) |
-| `:46` `cutoutShapes: null` | unchanged — but `shapes.cutoutShapes = serializeShapes(base.cutoutShapes)` is written into the new block |
-| `:48-50` `inlay: { ...inlay }` | **the bug.** Spreads live `THREE.Shape`s into JSON. Becomes `inlay: { items: items.map(i => ({ ...i, shapes: [] })) }`, with the real geometry going to `shapes.inlayShapes[item.id]` as `PersistedShapeSchema[]` |
-| `:53` `patternShapes: null` | unchanged — `shapes.patternShapes` is written **only when the slot holds `THREE.Shape`s**. When it holds a `THREE.BufferGeometry` (the shipping STL path, branched at `src/components/ImperativeModel.tsx:829-830`) it stays `null` and the zip asset remains the source of truth, because `SerializedGeometry`'s typed arrays (`src/utils/geometry/serialize.ts:21-25`) are not JSON-safe |
+| **new sibling key after `:53`** | **STRUCK (D3):** no `shapes` block is written; doc 07 §4.5 owns the zip assets |
+| `:46` `cutoutShapes: null` | unchanged — **STRUCK (D3):** inline `shapes.cutoutShapes`; retain the raw outline zip asset |
+| `:48-50` `inlay: { ...inlay }` | **the bug.** Spreads live `THREE.Shape`s into JSON. Becomes `inlay: { items: items.map(i => ({ ...i, shapes: [] })) }`. **STRUCK (D3):** `shapes.inlayShapes[item.id]`; real geometry travels through doc 07 §4.5's zip asset using `PersistedShapeSchema` |
+| `:53` `patternShapes: null` | unchanged — **STRUCK (D3):** inline `shapes.patternShapes`; generated shapes use doc 07 §4.5a's zip asset, and the existing STL zip asset remains the source for `THREE.BufferGeometry` |
 | `:42` `timestamp: Date.now()` | keep in the bundle; **exclude from the share payload** — it makes any design hash unstable (parent §7) |
 
 **Import side.** `importProjectBundle` (`:105-199`) routes through `migrateProject` and returns `MigrateResult` instead of throwing. `Controls.handleImportClick` (`src/components/Controls.tsx:160-262`) then re-hydrates in a **defined precedence**:
@@ -590,7 +590,7 @@ Coverage: `src/utils/params/**`, `src/utils/project/**` and `src/utils/share/**`
 
 **Half A**
 
-- `pnpm test` passes. Baseline to regress against is **21 files / 162 tests** (`docs/_source/baseline-verification.md`); the count only grows.
+- `pnpm test` passes. Baseline to regress against is **20 files / 155 tests** after P0 deletes `offsetUtils.test.ts` (−1 file, −7 tests from `docs/_source/baseline-verification.md`); the count only grows.
 - `grep -rn "leva" package.json pnpm-lock.yaml` returns nothing (the choice stays made).
 - `pnpm build` exits 0 and prints no new chunk over budget beyond the existing single-chunk warning.
 - T3 fails against `DebouncedInput` as shipped and passes after the `revision` change — demonstrate both, in that order, in the PR description.
