@@ -2,7 +2,7 @@
 
 Fork of `techfoundrynz/grippysheet-studio` on branch `gripsmith`: turns a manual grip-tape editor into a procedural
 grip design studio — seeded 2D pattern synthesis, plus a flat vinyl/laser cut-path export beside the existing 3D print
-export. New here? Read `HANDOFF.md`, then `docs/00-architecture.md`.
+export. New here? Read `HANDOFF.md`, then `docs/00-architecture.md`. `CLAUDE.md` is this file's mirror for Claude Code — keep the two in sync.
 
 ## Commands
 
@@ -19,9 +19,11 @@ Homebrew must be on `PATH` for `pnpm`/`node`/`npx` (`git` is Apple Git at `/usr/
 
 **Gate after every commit:** tests green, build exit 0, **lint exit 0**, and the `tsc` error list **diffed** against a
 `/tmp/tsc-before-$PHASE.txt` captured once per phase
-(`… --noEmit 2>&1 | grep 'error TS' | sed -E 's/\(([0-9]+),([0-9]+)\)//' | sort`). **Gate on the diff, never the count** —
+(`… --noEmit 2>&1 | grep 'error TS' | sed -E 's/\(([0-9]+),([0-9]+)\)//' | LC_ALL=C sort`). **Gate on the diff, never the count** —
 it is the only gate that catches a param declared and never bound. **Strip `(line,col)`** or any commit inserting a line
-above a pre-existing error false-fails; **suffix the temp file with the phase** because wave 1 runs four agents at once.
+above a pre-existing error false-fails; **suffix the temp file with the phase** because wave 1 runs four agents at once; **pin the sort locale (`LC_ALL=C`)** —
+`en_US` and `C` collate case differently (`Controls.tsx` sorts before `controls/` under `C`, after it under `en_US`), so a
+baseline sorted in another shell false-fails on ordering alone.
 
 ## The specification is binding
 
@@ -42,16 +44,16 @@ above a pre-existing error false-fails; **suffix the temp file with the phase** 
 - **Millimetres**, three.js scene units at 1 unit = 1 mm. Only DXF import normalises units (`src/utils/dxfUtils.ts:59-81`);
   a source with its own unit system converts itself.
 - **Rings are implicitly closed** — never append a duplicate first point. **Minimum 3 vertices per ring:** `points.length
-  < 6` is silently dropped at `manifoldOps.ts:86` (also `:93`, `:132`), with no error and no signal any consumer reads.
+  < 6` is silently dropped at `src/utils/geometry/manifoldOps.ts:86` (also `:93`, `:132`), with no error and no signal any consumer reads.
 - **Centering is a bounding-box midpoint, never a centroid.** Nothing computes a centroid; the only hit is the wrong
   comment at `src/components/ImperativeModel.tsx:478`. Four separate bbox implementations exist.
-- **Curves flatten at `getPoints()`'s default 12 divisions** (`serialize.ts:29-32`, `:36`) — emit polylines at the
+- **Curves flatten at `getPoints()`'s default 12 divisions** (`src/utils/geometry/serialize.ts:29-32`, `:36`) — emit polylines at the
   resolution you want. **Six live geometry representations** exist (root §5 table): know your layer, convert only at the
   existing seams (`serializeShapes` / `deserializeShapes`), and do not add a seventh.
 
 ## Pipeline
 
-**extrude → compose → clip, inside the Web Worker** — `Manifold.extrude` (`patternPipeline.ts:139`), `Manifold.compose`
+**extrude → compose → clip, inside the Web Worker** — `Manifold.extrude` (`src/utils/geometry/patternPipeline.ts:139`), `Manifold.compose`
 (`:236`), `intersect`/`subtract` (`:269`, `:286`), clip gated on `clipToOutline` (`:218`). Nothing forks in 2D anywhere.
 Main-thread geometry exceptions — **four, not one** (root §7, `docs/00-architecture.md:329`): the Base plate
 (`ImperativeModel.tsx:447-451`, never booleaned), inlay **placeholder** extrusion (`:639`), inlay **tile placement** at 4
@@ -65,21 +67,21 @@ Full set of 20 in `docs/IMPLEMENTATION-PLAN.md` §"Cross-cutting rules". These b
    hops to reach it: schema → `App` → `Controls` → `ModelViewer` destructure (`:48-54`) → **`ModelViewer` JSX attribute
    (`:460-501`, the step most often missed)** → `ImperativeModelProps` (`:15-54`, `:60-96`) → `buildJob` (`:825-861`) →
    `PatternJob`. Copy `rotationClamp` hop for hop.
-2. **`.default()` on every new schema field.** `getDefaults` is `schema.parse({})` (`schemaDefaults.ts:7`) in three
+2. **`.default()` on every new schema field.** `getDefaults` is `schema.parse({})` (`src/utils/schemaDefaults.ts:7`) in three
    top-level consts (`:10-12`) — a missing default is a module-load-time throw that kills app and suite together. Assert
    on `getDefaults(...)` **directly**, never "tests pass".
 3. **zod 4.2.0 does not validate inside `.default([…])`.** A field required on `InlayItemSchema` but missing from the
    `items` literal (`src/types/schemas.ts:51-63`) is `undefined` at runtime with no type error. Edit the literal in the
    same commit. **Green is what this failure looks like.**
-4. **Never put a non-cloneable value in a worker job.** `pump()` sets `inFlight` (`patternClient.ts:66`) before
+4. **Never put a non-cloneable value in a worker job.** `pump()` sets `inFlight` (`src/utils/geometry/patternClient.ts:66`) before
    `postMessage` (`:67`) with no try/catch; a `DataCloneError` **wedges all geometry generation for the session** at the
    `:61` guard — spinner stuck, no console error. No `THREE.Shape`, class instance, function or `Date`. Assert
    `structuredClone(job)` in a test.
-5. **Worker failure is silent** — the catch posts an empty result that clears the spinner (`geometryWorker.ts:34-50`) and
+5. **Worker failure is silent** — the catch posts an empty result that clears the spinner (`src/workers/geometryWorker.ts:34-50`) and
    `PatternResult.empty` is read by nobody. Surface failure through `AlertContext` (`src/context/AlertContext.tsx:20`).
 6. **Track and flush every wasm object** (`manifoldOps.ts:49-72`; `finally { ops.flush() }` at `patternPipeline.ts:369-371`).
    Never cache one made in an unbounded per-shape loop — eviction `delete()`s it.
-7. **`kind:'shapes'` has never run in production.** The pattern slot is STL-only (`GeometryControls.tsx:163`), so
+7. **`kind:'shapes'` has never run in production.** The pattern slot is STL-only (`src/components/controls/GeometryControls.tsx:163`), so
    `buildJob` always takes `kind:'geometry'` (`ImperativeModel.tsx:829-830`). Treat `:832-836` as new code under test.
 8. **`patternScale` is auto-overwritten on load** by `calculateAutoPatternScale` (`GeometryControls.tsx:67-112`, written
    at `:132-136`) — mm-correct generated geometry gets silently rescaled.
@@ -87,16 +89,17 @@ Full set of 20 in `docs/IMPLEMENTATION-PLAN.md` §"Cross-cutting rules". These b
    commit or `pnpm build` fails. `src/` has zero dynamic imports today.
 10. **Append tiler parameters, never insert.** `generateTilePositions` has 13 positional params
     (`src/utils/patternUtils.ts:285-299`) across **15 call sites**; inserting silently rebinds arguments.
-11. **`clipper-lib` is dead** (`src/utils/offsetUtils.ts:2`), deleted in M0; the live 2D engine is manifold-3d
-    `CrossSection`. **Never gate on a bare `grep -rni clipper`** — two correct Clipper2 references survive
-    (`patternPipeline.ts:11`, `manifoldCache.test.ts:164`). Gate on
+11. **`clipper-lib` is dead** (`src/utils/offsetUtils.ts:2`; that module is imported only by its own test) and is
+    deleted by P0 commit 3 (M0); the live 2D engine is manifold-3d `CrossSection`. **Never gate on a bare
+    `grep -rni clipper`** — two correct Clipper2 references survive (`patternPipeline.ts:11`,
+    `src/utils/geometry/manifoldCache.test.ts:164`). Gate on
     `grep -rn "clipper-lib\|ClipperLib\|ClipperOffset" src/ package.json`.
 12. **Coverage is allowlisted** to `src/utils/**`, `src/context/**` and two components (`vite.config.ts:30-35`). Put new
     geometry logic under `src/utils/**`; never widen the list to hide a 0%.
 13. **Winding is inconsistent by source and load-bearing at two import boundaries.** DXF outers are CCW
     (`dxfUtils.ts:392-397`); SVG outers are CW; **holes are never rewound**. Irrelevant at the CSG boundary
     (all `'EvenOdd'`) and re-derived by `ExtrudeGeometry` — but `ShapePath.toShapes(isCCW)` for every text glyph
-    (`SVGPaintModal.tsx:48`, `:59`) and `SVGLoader.createShapes` under its default `nonzero` rule both infer hole nesting
+    (`src/components/SVGPaintModal.tsx:48`, `:59`) and `SVGLoader.createShapes` under its default `nonzero` rule both infer hole nesting
     from it, so a ring emitted with the wrong winding **silently becomes a solid instead of a hole**. Root §7
     (`00-architecture.md:324`). Doc 06a's `enforceWinding` (P3 commit 27) is the only place this is normalised.
 
@@ -104,11 +107,13 @@ Full set of 20 in `docs/IMPLEMENTATION-PLAN.md` §"Cross-cutting rules". These b
 
 **One task = one commit**, and every commit leaves the tree shippable. Use the commit message written in the plan's row
 (`type(scope): summary`, e.g. `feat(tiler): add seeded PRNG as the 14th parameter`). Run the gate first.
-`git config user.name` / `user.email` are unset — **set them before commit 1, then confirm with
-`git var GIT_AUTHOR_IDENT`.** With them unset git does not fail: it invents `<user>@<hostname>.local`, and no gate
-catches it. **Stage explicitly (`git add <the row's paths>`) — never `git add -A`**: `AGENTS.md`, `HANDOFF.md` and
-`docs/` are all untracked, and only P0 commit 1 should take them. There is no `origin` remote yet; the user
-adds it. End every commit message with: `Co-Authored-By: Codex Opus 5 (1M context) <noreply@anthropic.com>`
+`git config user.name` / `user.email` are set **locally** in this repo (`Liam Thompson <liamstar@gmail.com>`; worktrees
+inherit it, the global config is still unset) — **confirm with `git var GIT_AUTHOR_IDENT` before the first commit in any
+tree.** With them unset git does not fail: it invents `<user>@<hostname>.local`, and no gate catches it. **Stage
+explicitly (`git add <the row's paths>`) — never `git add -A`**: `CLAUDE.md`, `AGENTS.md`, `HANDOFF.md` and `docs/` are
+tracked (`484c623`…`4b1d978`), and stray untracked files such as `.cursor/` must never ride along. There is no `origin`
+remote yet — only `upstream` (`techfoundrynz/grippysheet-studio.git`), which must not be reused as `origin`; the user
+adds it (P0 commit 4 asks). End every commit message with: `Co-Authored-By: Codex <noreply@openai.com>`
 
 ## Upstream mergeability
 
