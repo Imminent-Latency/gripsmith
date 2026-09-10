@@ -299,7 +299,7 @@ Keep diffs upstream-mergeable. A real merge-base exists (`upstream` remote, bran
 | `src/components/ImperativeModel.tsx:897-903` | the **hand-maintained dependency array** | a new setting omitted here **never triggers regeneration** — already demonstrably broken for the three `debugShow*Cutter` props, which `buildJob` reads at `:857-859` and the array omits |
 | `vite.config.ts:30-35` | coverage allowlist | new code reports 0% silently |
 
-**Persistence note.** `ProjectAssets.inlays` is one asset slot per id (`Record<string, Asset>`): export at `src/utils/projectUtils.ts:69-73`, import at `:154-166`, and registration at `src/components/Controls.tsx:105-115`.
+**Persistence note.** `ProjectAssets.inlays` is one asset slot per id (`Record<string, Asset>`): export at `src/utils/projectUtils.ts:69-73`, import at `:154-166`, and registration at `src/components/Controls.tsx:105-115`. **D3 (adopted by @liamstar, 2026-09-04):** doc 07 §4.5's `.shapes.json` zip asset owns source-less geometry and edits to existing sources. Registering edited geometry supersedes the source asset; the original is not retained across a round trip. Doc 04's whole `ProjectSchemaV2.shapes` block and doc 05's `editedShapes` mechanism are struck. `SerializedShapeSchema` is declared once by doc 04 and imported by 05 and 07; `PersistedShapeSchema` becomes P9 commit 102's shape-asset element.
 
 **Never reformat.** There is no Prettier and no EditorConfig; indentation is mixed across files and *within* `src/utils/geometry/patternPipeline.ts`.
 
