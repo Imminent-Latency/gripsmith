@@ -1,6 +1,8 @@
 # GripSmith — Handoff
 
-*Written 2026-09-04, against branch `gripsmith` @ `cf698036f28f86e4d70c00b24a2283b5ab7d3f49`.*
+*Written 2026-09-04 against branch `gripsmith` @ `cf698036f28f86e4d70c00b24a2283b5ab7d3f49`; revised 2026-09-10 against
+`4b1d978`, four docs-only commits ahead of that upstream tip. `CLAUDE.md` (Claude Code) and `AGENTS.md` (Codex) at the
+repo root are the same operating guide — keep them in sync.*
 
 ## What this project is
 
@@ -23,12 +25,12 @@ vinyl or laser grip tape instead of printing it. Everything stays client-side.
 ## Where things stand right now
 
 **No implementation has started.** `src/` is untouched — `git diff upstream/master -- src/` is empty, byte
-for byte, and **tracked** (`git ls-files src/` → 86 files; 150 tracked in total, all upstream's).
-**Nothing *of this plan* is committed**, but the upstream history is fully present: branch `gripsmith` points
-at `cf698036f28f86e4d70c00b24a2283b5ab7d3f49`, which is `upstream/master`, and `git rev-list --count HEAD`
-is **78**. Commit 1 of the plan is the fork's first divergence, not an initial commit.
-`git status --short` prints exactly **three** lines: `?? CLAUDE.md`, `?? HANDOFF.md`, `?? docs/` — all three
-are this project's own work and all three are still untracked.
+for byte, and **tracked** (`git ls-files src/` → 86 files; **167** tracked in total: upstream's 150 plus this
+project's 17 guide and doc files). **No code of this plan is committed**, but the upstream history is fully
+present: branch `gripsmith` is at `4b1d978`, four docs-only commits (`484c623`…`4b1d978`) ahead of
+`upstream/master` (`cf698036f28f86e4d70c00b24a2283b5ab7d3f49`), and `git rev-list --count HEAD` is **82**.
+The fork's first divergence is therefore the docs commit `484c623`; P0 commit 1 is its first *plan* commit.
+`git status --short` is clean apart from an untracked `.cursor/` (editor state — never stage it).
 
 **The design phase is complete and verified.** Concretely, "verified" means:
 
@@ -42,9 +44,10 @@ are this project's own work and all three are still untracked.
   sharpened claims; a cross-dimension consistency pass resolved the **12** places where dimensions contradicted
   each other; four targeted follow-ups closed the gaps the first sweep left.
 - **Every claim carries `file:line`.** Across `docs/*.md` — the nine design docs plus `README.md` and
-  `IMPLEMENTATION-PLAN.md` — **1,482 citation occurrences, 580 distinct `file:line` pairs, across 72 distinct
-  source files.** Restricted to the nine design docs alone (`docs/0*.md`): 1,383 / 568 / 72. Re-derive with:
-  `grep -ohE '\b(src|public|node_modules)/[A-Za-z0-9_./-]+\.(ts|tsx|js|json|dxf|svg|wasm)(\.d\.ts)?:[0-9]+' docs/*.md | sort -u | wc -l`   # 580 distinct pairs
+  `IMPLEMENTATION-PLAN.md` — **1,489 citation occurrences, 578 distinct `file:line` pairs, across 72 distinct
+  source files** (re-counted 2026-09-10; the drift from the original 1,482 / 580 is in the plan and README, not
+  the design docs). Restricted to the nine design docs alone (`docs/0*.md`): 1,383 / 568 / 72. Re-derive with:
+  `grep -ohE '\b(src|public|node_modules)/[A-Za-z0-9_./-]+\.(ts|tsx|js|json|dxf|svg|wasm)(\.d\.ts)?:[0-9]+' docs/*.md | sort -u | wc -l`   # 578 distinct pairs
   `… | sed 's/:[0-9]*$//' | sort -u | wc -l`   # 72 distinct files
 - **The audit corrected the design doc, not the reverse.** Revision 1 of the architecture doc named the dead
   dependency `clipper-lib` as the join point for all shape sources four times, had the pipeline stage order
@@ -84,17 +87,18 @@ Phase P0 deletes `src/utils/offsetUtils.test.ts` (7 tests), so from P0 commit 3 
 - **Remotes:** `upstream` → `https://github.com/techfoundrynz/grippysheet-studio.git` (fetch + push).
   **There is no `origin`.** The user will add it. `pnpm deploy:gh` (`package.json:12` → `gh-pages -d dist`)
   fails until one exists — P0 commit 4 owns adding it.
-- **`git status --short`** → `?? CLAUDE.md`, `?? HANDOFF.md`, `?? docs/` — and nothing else. 150 tracked
-  files, all of them upstream's. **All three untracked entries are this project's own work and belong in
-  P0 commit 1**; no later commit adds them. **Stage explicitly — never `git add -A`.**
-- **Working tree = upstream `master` exactly, plus the three untracked entries.** `dist/` and `node_modules/`
-  exist locally and are gitignored.
-- **No git identity is configured** — `git config user.name` and `git config user.email` are empty both
-  locally and globally (both exit 1). **git will NOT refuse: it silently guesses.** Verified here:
-  `git var GIT_AUTHOR_IDENT` → `Liam Thompson <ldev@Liams-MacBook-Air.local>`, exit 0, and a scratch
-  `git init` + `git commit` succeeds with that author. Every commit would carry that unroutable `.local`
-  address, **no gate in the plan inspects authorship**, and the only fix afterwards is a history rewrite.
-  Set them before commit 1, then confirm with `git var GIT_AUTHOR_IDENT`.
+- **`git status --short`** → clean apart from `?? .cursor/` (editor state — never stage it). 167 tracked files:
+  upstream's 150 plus `CLAUDE.md`, `AGENTS.md`, `HANDOFF.md` and `docs/`, committed in `484c623`…`4b1d978`
+  (the plan's row for P0 commit 1 predates those commits; it does not need to take them). **Stage explicitly —
+  never `git add -A`.**
+- **Working tree = upstream `master` exactly for everything under `src/`, `public/` and the tool config, plus
+  the committed guides and docs.** `dist/` and `node_modules/` exist locally and are gitignored.
+- **Git identity is configured locally** (2026-09-08): `git config user.name` / `user.email` in this repo
+  resolve `git var GIT_AUTHOR_IDENT` → `Liam Thompson <liamstar@gmail.com>`. Worktrees inherit it; the
+  **global** config is still unset, so any other clone needs its own. Confirm with `git var GIT_AUTHOR_IDENT`
+  before the first commit in any tree. With it unset **git will NOT refuse: it silently guesses**
+  `<user>@<hostname>.local`, **no gate in the plan inspects authorship**, and the only fix afterwards is a
+  history rewrite.
 - Upstream history **is** present and `git` works. The recon report's standing caveat that "git itself is
   unavailable in the audit environment" describes the audit environment, not this one; it is stale here.
 
@@ -114,7 +118,7 @@ Read in this order. Everything lives under `/Users/ldev/workspaces/imminentlaten
 | 06 | [`06-flat-export.md`](docs/06-flat-export.md) | The fork's second physical output. **06a** exports the pad outline (SVG + R12 DXF) **on the main thread — no worker, no core change** (`docs/06-flat-export.md:12`, `:423`, `:508`); **06b** exports the pattern footprint through a read-only worker contour channel. | 06a ready · **M4a**. 06b gated on M3 · **M4b**. Its §10 amendment is **adopted**. |
 | 07 | [`07-text-image-sources.md`](docs/07-text-image-sources.md) | Wrap `traceImage` as a `ShapeSource`, extract the opentype producer out of the paint modal into `src/utils/text/`, self-host the 9 preset fonts, route both producers into the pattern lane, and close the persistence hole for shapes with no source file. | Draft · **M5**. Its §4.5 zip-asset mechanism is **the winner of D3**. |
 | 08 | [`08-determinism-and-seeding.md`](docs/08-determinism-and-seeding.md) | The mulberry32 PRNG, `seed` on `GeometrySettingsSchema` + `InlayItemSchema` + `PatternJob`, and the tiler's 14th parameter. Removes the last three `Math.random()` calls. | Ready · **M2** · blocked by nothing |
-| — | [`IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md) | **The execution order of record.** 126 commits across 12 phases (P0–P11), each with its files, its verify command and its commit message; the decisions of record (D1–D4 plus editorial D5); **20 cross-cutting rules**; the merge order and its eleven shared-file collision points; risks; deferred work. Not a specification — a sequence. | Written 2026-09-04 |
+| — | [`IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md) | **The execution order of record.** 126 commits across 12 phases (P0–P11), each with its files, its verify command and its commit message; the decisions of record (D1–D4 plus editorial D5); **20 cross-cutting rules**; the merge order and its twelve shared-file collision points (the table has 12 rows; the plan's prose says "ten" at `:375` and "eleven" at `:839`); risks; deferred work. Not a specification — a sequence. | Written 2026-09-04 |
 | — | [`_source/00-recon-report.md`](docs/_source/00-recon-report.md) | **The verified evidence base.** §1 is the 12 findings that changed the plan; §2 is the exhaustive verdict table (the thing to grep); §3 is what the code actually does. **Read the errata block at the top.** | Ground truth. **Do not hand-edit.** |
 | — | [`_source/baseline-verification.md`](docs/_source/baseline-verification.md) | Upstream's install / test / typecheck / build state as received, plus three config findings (`base` unset, React Compiler on, coverage allowlist). | Do not hand-edit. |
 | — | [`_source/00-architecture.original.md`](docs/_source/00-architecture.original.md) | Revision 1, preserved. Its §1 Vision and §3 Goals survive; **most of its technical assertions were wrong. Do not cite it.** | Historical only. |
@@ -130,8 +134,8 @@ Do these three things, in this order, before anything else.
 
 **1. Read the root doc.**
 
-`$EDITOR` and `$VISUAL` are **unset** on this machine, so `$EDITOR <file>` expands to a bare filename and
-exits 126 with "Permission denied". Read, don't edit:
+`$EDITOR` and `$VISUAL` are **unset** on this machine, so `$EDITOR <file>` expands to the bare filename and tries
+to execute it (exit 126 "Permission denied" for a slash path, 127 "command not found" for a bare name). Read, don't edit:
 
 ```sh
 export PATH="/opt/homebrew/bin:$PATH"
@@ -143,8 +147,8 @@ sed -n '1,60p'   docs/_source/00-recon-report.md  # at minimum the errata block 
 **2. Read the plan.**
 
 ```sh
-sed -n '1,340p'   docs/IMPLEMENTATION-PLAN.md     # decisions of record, 20 rules, critical path, merge order
-sed -n '341,900p' docs/IMPLEMENTATION-PLAN.md     # the phases, risks, deferred, appendix
+sed -n '1,394p'   docs/IMPLEMENTATION-PLAN.md     # decisions of record, 20 rules, critical path, merge order (:372)
+sed -n '395,882p' docs/IMPLEMENTATION-PLAN.md     # the phases (from :395), risks, deferred, appendix — 882 lines total
 ```
 
 Read, in this order: "The decisions of record", the **20 cross-cutting rules**, "Critical path and
@@ -154,10 +158,9 @@ parallel tracks", then the phase you are assigned. Every one of the 20 rules des
 **3. Make the first commit — P0, milestone M0. Nothing else may start first.**
 
 ```sh
-pnpm install
-git config user.name  "<your name>"    # currently unset — git does NOT refuse, it invents
-git config user.email "<your email>"   # <user>@<hostname>.local. Do this FIRST.
-git var GIT_AUTHOR_IDENT               # must echo what you just set
+CI=true pnpm install --frozen-lockfile  # CI=true is required in a non-TTY (agents, CI); ~1m40s to green in a fresh worktree
+git var GIT_AUTHOR_IDENT               # must echo Liam Thompson <liamstar@gmail.com> (set locally 2026-09-08). In any
+                                       # other clone set user.name/user.email FIRST — unset, git invents <user>@<host>.local
 export PHASE=p0                        # per phase, per agent — wave 1 runs four agents concurrently
 npx tsc -p tsconfig.app.json --noEmit 2>&1 | grep 'error TS' \
   | sed -E 's/\(([0-9]+),([0-9]+)\)//' | sort > /tmp/tsc-before-$PHASE.txt    # 18 lines
@@ -182,7 +185,8 @@ table (`docs/IMPLEMENTATION-PLAN.md` §"Merge order"). Two pairs bite hardest: *
 both append to `src/types/schemas.ts`** (merge P1 first — only P1 touches the `items` default literal), and
 **P1 commit 12 and P3 commit 26 both edit `src/components/ImperativeModel.tsx`** — P1's insertions at
 `:15-54` and `:60-96` sit *above* P3's `:183-202`/`:211-228` targets, so after P1 merges those ranges no
-longer bound the two `if (baseOutlineMirror)` blocks; **re-locate them by grep, never by line number.**
+longer bound the `if (baseOutlineMirror)` blocks (four hits today — `:183`, `:200`, `:211`, `:226` — two inside
+each cited range); **re-locate them by grep, never by line number.**
 `vite.config.ts:30-35` is worse still — P2 commit 15 and P7 commit 82 append to the *same six lines*.
 **Each agent works on its own branch off the P0 tip (`git checkout -b phase/P1 <P0-tip>`) or its own
 `git worktree add` — never two agents in one working tree**, because every `git diff`-based Verify cell in
@@ -277,7 +281,7 @@ D1–D4 resolved **2026-09-04** by @liamstar. The full rationale for each is in
 questions until **P0 commits 1 and 2** land.
 
 **`docs/README.md`'s four "Decisions outstanding" are NOT the same four.** Its rows 1–3 are D1, D2 and D3;
-its **row 4** (`docs/README.md:106`) is *"Two smaller doc-02 divergences from root §5.1: where `ShapeSource`
+its **row 4** (`docs/README.md:107`) is *"Two smaller doc-02 divergences from root §5.1: where `ShapeSource`
 lives, and whether 'generalise `generateTilePositions`' is the right wording"*, gated "wording only; no code
 is blocked" — and **D4 (doc 08 stays separate) appears nowhere in README.** The plan resolves README row 4
 as **D5, an editorial amendment of root §5.1, explicitly not attributed to @liamstar**; see the open-questions
@@ -325,7 +329,7 @@ from another project) until P2's `src/utils/assetUrl.ts` lands — flipping it e
 **Genuinely open, needing @liamstar:**
 
 - **Where `ShapeSource` lives — root §5.1 vs doc 02 §4.2** (and the paired `generateTilePositions` wording).
-  Root `00-architecture.md:252` says *"Define it beside `src/utils/shapeLoader.ts:12`."*;
+  Root `00-architecture.md:251` says *"Define it beside `src/utils/shapeLoader.ts:12`."*;
   `docs/02-generator-engine.md:132` places it in `src/utils/generators/types.ts` and ends *"Root §5.1 wins
   until amended — amend it or overrule this, at @liamstar's call."* The second divergence is at
   `docs/02-generator-engine.md:55`. This is **`docs/README.md`'s decision 4** and it is **NOT** the plan's D4.
@@ -376,7 +380,7 @@ cd /Users/ldev/workspaces/imminentlatency/gripsmith
 ```
 
 ```sh
-pnpm install                                    # clean, exit 0
+pnpm install                                    # clean, exit 0 (non-TTY: CI=true pnpm install --frozen-lockfile)
 pnpm dev                                        # vite dev server
 pnpm test                                       # vitest run — 21 files / 162 tests today
 pnpm build                                      # vite build — exit 0; does NOT typecheck
