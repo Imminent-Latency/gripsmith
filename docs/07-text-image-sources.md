@@ -333,7 +333,7 @@ Every existing call site this attaches to.
 
 ### 6.2 Testing (Vitest)
 
-Baseline to regress against: **21 files, 162 tests, all passing, 4.54s** (`docs/_source/baseline-verification.md`). Environment is `jsdom` (`vite.config.ts:26`); coverage `include` already covers everything this doc adds (`:30-35`).
+Baseline to regress against: **20 files / 155 tests** after P0 deletes `offsetUtils.test.ts` (−1 file, −7 tests from `docs/_source/baseline-verification.md`). Environment is `jsdom` (`vite.config.ts:26`); coverage `include` already covers everything this doc adds (`:30-35`).
 
 > **Blocking harness fact, not in the recon report.** `ImageData` is **undefined** in both the Node runtime (verified: `node -e "typeof ImageData"` → `undefined` on v26.5.0) and the configured jsdom environment (verified: `new JSDOM('').window.ImageData` → `undefined`; the `canvas` package is not installed). `traceLayers` constructs `new ImageData(quant, W, H)` inside `buildQuant` at `src/utils/image/traceImage.ts:130`, so **any test of `traceLayers` or `traceImage` throws `ImageData is not defined` today.** This is why the module has no test. Install a 5-line global shim in the test file — `imagetracerjs` duck-types the argument, reading only `.data`, `.width` and `.height` (`node_modules/imagetracerjs/imagetracer_v1.2.6.js:154-155`, `:245`, `:248`) and reassigning `.data` when it is RGB rather than RGBA (`:256`) — so a plain writable class suffices; do **not** add the `canvas` dependency.
 
@@ -361,7 +361,7 @@ Each is a command, an assertion, or a specific observable outcome.
 
 **Regression floor (applies to every task)**
 
-1. `pnpm test` passes with **no fewer than 162 tests** and no previously-passing test modified. New tests only add.
+1. `pnpm test` passes with **no fewer than 155 tests** (after deleting the 7 tests in `offsetUtils.test.ts`) and no previously-passing test modified. New tests only add.
 2. `pnpm build` exits 0.
 3. `grep -rn "generateTextShapesFromOpentype" src/components/` returns **zero** hits. (The name may survive in `src/utils/text/textToShapes.ts`'s docblock; that is not checked either way.)
 

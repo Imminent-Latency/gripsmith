@@ -309,7 +309,7 @@ Everything new lands in `src/utils/inlay/**`, inside the coverage allowlist (`vi
 
 Every one is a command, an assertion, or an observable outcome.
 
-1. `pnpm test` passes, with **no fewer** than the 21 files / 162 tests recorded in `docs/_source/baseline-verification.md`, plus the new files above.
+1. `pnpm test` passes, with **no fewer** than the 20 files / 155 tests remaining after P0 deletes `offsetUtils.test.ts` (−1 file, −7 tests from `docs/_source/baseline-verification.md`), plus the new files above.
 2. `pnpm build` exits 0.
 3. `grep -rn 'Inlay_\${' src/ --include='*.ts' --include='*.tsx'` returns **exactly zero** hits. It matches **four** sites on upstream today, and all four must be routed: the two full-name literals (`inlayPipeline.ts:116`, `ImperativeModel.tsx:670`) call `formatInlayMeshName`, and the two prefix constructions (`applyInlayResult.ts:30`, `ImperativeModel.tsx:763`) call `inlayMeshPrefix`. *(The two bare-literal readers `ImperativeModel.tsx:528` and `:962` interpolate nothing, do not match this grep, and are out of scope.)*
 4. A new test asserts `buildInlayJobShapes` **(new)** maps `[{ color: 'transparent' }, { color: 'white' }]` to two job shapes at indices 0 and 1, preserving input order; and `grep -n "s.color !== 'transparent'" src/components/ImperativeModel.tsx` returns nothing. **Do not substitute a `generateInlay` assertion** — see the testing table: it already passes on unmodified upstream (`inlayPipeline.ts:92-93`), so it gates nothing.

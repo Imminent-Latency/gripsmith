@@ -590,7 +590,7 @@ Coverage: `src/utils/params/**`, `src/utils/project/**` and `src/utils/share/**`
 
 **Half A**
 
-- `pnpm test` passes. Baseline to regress against is **21 files / 162 tests** (`docs/_source/baseline-verification.md`); the count only grows.
+- `pnpm test` passes. Baseline to regress against is **20 files / 155 tests** after P0 deletes `offsetUtils.test.ts` (−1 file, −7 tests from `docs/_source/baseline-verification.md`); the count only grows.
 - `grep -rn "leva" package.json pnpm-lock.yaml` returns nothing (the choice stays made).
 - `pnpm build` exits 0 and prints no new chunk over budget beyond the existing single-chunk warning.
 - T3 fails against `DebouncedInput` as shipped and passes after the `revision` change — demonstrate both, in that order, in the PR description.

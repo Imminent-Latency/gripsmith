@@ -407,7 +407,7 @@ One inherited UI behaviour to handle deliberately: once `patternShapes` is non-e
 
 ### 6.2 Vitest
 
-All the new *logic* sits under `src/utils/generators/**`, inside the coverage allowlist `src/utils/**` (`vite.config.ts:30-35`). The two exceptions are deliberate and report 0%: `src/components/GeneratorRunner.tsx` (§4.1) and the `GeometryControls` render test's subject, both outside the allowlist, which criterion 8 forbids widening. Baseline to regress against: **21 files, 162 tests, 4.54 s** (`docs/_source/baseline-verification.md`). `patternPipeline.test.ts` passes today, which means **Manifold wasm runs under Vitest/jsdom** — an end-to-end shapes-kind test needs no browser harness. Model the job fixture on `src/utils/geometry/patternPipeline.test.ts:26-46`.
+All the new *logic* sits under `src/utils/generators/**`, inside the coverage allowlist `src/utils/**` (`vite.config.ts:30-35`). The two exceptions are deliberate and report 0%: `src/components/GeneratorRunner.tsx` (§4.1) and the `GeometryControls` render test's subject, both outside the allowlist, which criterion 8 forbids widening. Baseline to regress against: **20 files / 155 tests** after P0 deletes `offsetUtils.test.ts` (−1 file, −7 tests from `docs/_source/baseline-verification.md`). `patternPipeline.test.ts` passes today, which means **Manifold wasm runs under Vitest/jsdom** — an end-to-end shapes-kind test needs no browser harness. Model the job fixture on `src/utils/geometry/patternPipeline.test.ts:26-46`.
 
 Six new files plus one additive extension of a baseline file — the split criterion 1 counts on.
 
@@ -427,7 +427,7 @@ Each is a command, an assertion, or a stated observation.
 
 **Framework**
 
-1. `pnpm test` is green with **at least 27 files** — the 21 baseline files (`docs/_source/baseline-verification.md`) plus the **6 new** files in §6.2's table. The seventh §6.2 row is an *extension* of an existing file and adds no count. The constraint on baseline tests is not "none edited": **the only baseline test file modified is `src/utils/schemaDefaults.test.ts`, and no existing assertion in it is changed or removed** (`git diff src/utils/schemaDefaults.test.ts` shows additions only).
+1. `pnpm test` is green with **at least 26 files** — the 20 post-M0 baseline files (after deleting `offsetUtils.test.ts`, −1 file and −7 tests from `docs/_source/baseline-verification.md`) plus the **6 new** files in §6.2's table. The seventh §6.2 row is an *extension* of an existing file and adds no count. The constraint on baseline tests is not "none edited": **the only baseline test file modified is `src/utils/schemaDefaults.test.ts`, and no existing assertion in it is changed or removed** (`git diff src/utils/schemaDefaults.test.ts` shows additions only).
 2. `pnpm exec tsc -p tsconfig.app.json --noEmit 2>&1 | grep 'src/utils/generators\|GeneratorRunner'` returns **nothing**. (The gate is scoped to new paths: **18** pre-existing errors — root §4.1; `docs/_source/baseline-verification.md`'s "19" is stale — and they are not this doc's to fix.)
 3. `getDefaults(GeometrySettingsSchema)` succeeds and `src/utils/schemaDefaults.test.ts` passes — i.e. both new fields carry `.default()`.
 4. `grep -rn "generatorId\|generatorParams" src/types/schemas.ts` shows exactly two field declarations, each with `.default(`.
@@ -467,7 +467,7 @@ Each is a command, an assertion, or a stated observation.
 
 16. Round trip with no asset. `exportProjectBundle` returns `Promise<void>` — it builds a Blob, clicks a synthetic anchor and revokes the object URL (`src/utils/projectUtils.ts:76-87`) — so the two functions do **not** compose. Capture the Blob by stubbing `URL.createObjectURL`, reusing the harness already written at `src/utils/projectUtils.test.ts:9-29` (`document.createElement` spy plus `global.URL.createObjectURL`), then wrap the captured Blob as a `File` for `importProjectBundle`. Assert: the resulting `geometrySettings` carries the same `generatorId` and a deep-equal `generatorParams`; `patternShapes` is null in `project.json` (`src/utils/projectUtils.ts:53`); the zip carries **no** pattern asset; and the effect regenerates a deep-equal shape list. **Run it twice** — the second time with the pre-import state already holding that exact `generatorId` and `generatorParams`, so the effect key does not move. Regeneration must still happen, which is what the §4.7 emptiness guard buys.
 17. `pnpm build` exits 0 and the chunk list shows a **separate chunk** for each generator module; the main `index-*.js` chunk grows by less than 10 kB over the 1,850.77 kB baseline.
-18. `pnpm test` still reports the 162 baseline tests passing — no upstream expectation changed.
+18. `pnpm test` still reports the 155 post-M0 baseline tests passing (after deleting the 7 tests in `offsetUtils.test.ts`) — no upstream expectation changed.
 
 **Picker and `patternType`**
 

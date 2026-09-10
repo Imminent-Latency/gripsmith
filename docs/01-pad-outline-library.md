@@ -354,7 +354,7 @@ Every shared file touched, with the exact anchor and why isolation fails there. 
 
 ## 6. Edge cases, testing, acceptance criteria
 
-**Baseline to regress against:** 21 test files, 162 tests, all passing, 4.54 s (`docs/_source/baseline-verification.md`). **Do not** add a typecheck gate — `npx tsc -p tsconfig.app.json --noEmit` reports **18** pre-existing errors (parent §4.1; the baseline file's "19" is stale — re-measure before pinning a number) and inheriting them here would block M1 on unrelated work.
+**Baseline to regress against:** 20 files / 155 tests after P0 deletes `offsetUtils.test.ts` (−1 file, −7 tests from `docs/_source/baseline-verification.md`). **Do not** add a typecheck gate — `npx tsc -p tsconfig.app.json --noEmit` reports **18** pre-existing errors (parent §4.1; the baseline file's "19" is stale — re-measure before pinning a number) and inheriting them here would block M1 on unrelated work.
 
 ### Edge cases
 
