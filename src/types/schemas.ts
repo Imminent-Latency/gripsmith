@@ -17,6 +17,7 @@ export const BaseSettingsSchema = z.object({
 });
 
 export const InlayItemSchema = z.object({
+    seed: z.number().default(1),
     id: z.string(),
     name: z.string().optional(),
     shapes: z.array(z.any()), // Array of THREE.Shape or object wrapper
@@ -50,6 +51,7 @@ export type InlayItem = z.infer<typeof InlayItemSchema>;
 export const InlaySettingsSchema = z.object({
     items: z.array(InlayItemSchema).default([{
         id: 'default-layer',
+        seed: 1,
         name: 'Inlay Layer 1',
         shapes: [],
         scale: 1,
@@ -64,6 +66,7 @@ export const InlaySettingsSchema = z.object({
 });
 
 export const GeometrySettingsSchema = z.object({
+    seed: z.number().default(1),
     patternShapes: ThreeObjectsSchema.nullable().optional().default(null),
     patternType: z.enum(['dxf', 'svg', 'stl']).nullable().default(null),
     patternHeight: z.union([z.number(), z.string()]).default(""), // number or ''
