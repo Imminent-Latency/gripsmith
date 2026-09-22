@@ -1,8 +1,8 @@
 # GripSmith — Handoff
 
 *Written 2026-09-04 against branch `gripsmith` @ `cf698036f28f86e4d70c00b24a2283b5ab7d3f49`; revised 2026-09-10 against
-`4b1d978`, four docs-only commits ahead of that upstream tip. `CLAUDE.md` (Claude Code) and `AGENTS.md` (Codex) at the
-repo root are the same operating guide — keep them in sync.*
+`4b1d978`, four docs-only commits ahead of that upstream tip; revised 2026-09-22 against `fb62ba9` (P0 merged, PR #2).
+`CLAUDE.md` (Claude Code) and `AGENTS.md` (Codex) at the repo root are the same operating guide — keep them in sync.*
 
 ## What this project is
 
@@ -24,13 +24,14 @@ vinyl or laser grip tape instead of printing it. Everything stays client-side.
 
 ## Where things stand right now
 
-**No implementation has started.** `src/` is untouched — `git diff upstream/master -- src/` is empty, byte
-for byte, and **tracked** (`git ls-files src/` → 86 files; **167** tracked in total: upstream's 150 plus this
-project's 17 guide and doc files). **No code of this plan is committed**, but the upstream history is fully
-present: branch `gripsmith` is at `4b1d978`, four docs-only commits (`484c623`…`4b1d978`) ahead of
-`upstream/master` (`cf698036f28f86e4d70c00b24a2283b5ab7d3f49`), and `git rev-list --count HEAD` is **82**.
-The fork's first divergence is therefore the docs commit `484c623`; P0 commit 1 is its first *plan* commit.
-`git status --short` is clean apart from an untracked `.cursor/` (editor state — never stage it).
+**P0 is merged; wave 1 (P1, P2, P3, P7) is in flight.** Branch `gripsmith` is at `fb62ba9` — the merge of PR #2
+(`phase/P0`: `16eeded`, `6800013`, `3179b70`, `5cd73ce`) on top of the four docs-only commits (`484c623`…`4b1d978`)
+that follow `upstream/master` (`cf698036f28f86e4d70c00b24a2283b5ab7d3f49`); `git rev-list --count HEAD` is **90**.
+**162** tracked files: upstream's 150, minus the five P0 deleted (`src/utils/offsetUtils.ts`, `src/utils/offsetUtils.test.ts`,
+`src/types/clipper-lib.d.ts`, `src/types.ts`, `public/CNAME`), plus this project's 17 guide and doc files. `src/` differs
+from `upstream/master` by those four deletions only (`git ls-files src/` → 82). The fork's first divergence is the docs
+commit `484c623`; P0 commit 1 (`16eeded`) is its first *plan* commit. `git status --short` is clean apart from an
+untracked `.cursor/` (editor state — never stage it).
 
 **The design phase is complete and verified.** Concretely, "verified" means:
 
@@ -78,21 +79,26 @@ The fork's first divergence is therefore the docs commit `484c623`; P0 commit 1 
 | Lint | `pnpm lint` | exit 0 with **42 warnings, 0 errors**. No rule written *literally* in `eslint.config.js:20-38` is `'error'`, and **two are `'off'`, not `'warn'`** — `@typescript-eslint/no-explicit-any` (`:26`) and `no-empty` (`:38`), so `any` and empty blocks produce no signal at all. **But lint CAN fail:** `:10` extends `js.configs.recommended` (61 error-severity rules) and `:21` spreads `reactHooks.configs.recommended.rules`, which sets `react-hooks/rules-of-hooks: 'error'`. Treat the warning count as drift; treat a **non-zero exit** as real. |
 | Typecheck | `npx tsc -p tsconfig.app.json --noEmit` | **18 pre-existing errors** (12 × TS6133, 1 × TS6192, 4 × TS2304, 1 × TS2322). There is **no** `typecheck` script and `"build": "vite build"` (`package.json:9`) does **not** typecheck. |
 
-Phase P0 deletes `src/utils/offsetUtils.test.ts` (7 tests), so from P0 commit 3 onward the suite is
-**20 files / 155 tests**. That is the expected drop, not a regression.
+Phase P0 deleted `src/utils/offsetUtils.test.ts` (7 tests), so from P0 commit 3 onward the suite is
+**20 files / 155 tests** (re-measured on `fb62ba9`: 20 / 155, build 0, lint 0 with 42 warnings, tsc 18 unchanged). That
+is the expected drop, not a regression.
 
 ## Repo state
 
 - **Branch:** `gripsmith` (checked out). Also `master` locally, at the same commit, and `remotes/upstream/master`.
-- **Remotes:** `upstream` → `https://github.com/techfoundrynz/grippysheet-studio.git` (fetch + push).
-  **There is no `origin`.** The user will add it. `pnpm deploy:gh` (`package.json:12` → `gh-pages -d dist`)
-  fails until one exists — P0 commit 4 owns adding it.
-- **`git status --short`** → clean apart from `?? .cursor/` (editor state — never stage it). 167 tracked files:
-  upstream's 150 plus `CLAUDE.md`, `AGENTS.md`, `HANDOFF.md` and `docs/`, committed in `484c623`…`4b1d978`
-  (the plan's row for P0 commit 1 predates those commits; it does not need to take them). **Stage explicitly —
+- **Remotes:** `origin` → `git@github.com:Imminent-Latency/gripsmith.git` (added 2026-09-10 alongside P0 commit 4;
+  `gripsmith` is its default branch and every phase PR targets it; `gh repo set-default` is pinned to it — still pass
+  `--repo`, because `gh` otherwise prefers the remote *named* `upstream`) and `upstream` →
+  `https://github.com/techfoundrynz/grippysheet-studio.git` (never reuse it as `origin`). `pnpm deploy:gh`
+  (`package.json:12` → `gh-pages -d dist`) now waits only on `base` (P2 commit 18).
+- **`git status --short`** → clean apart from `?? .cursor/` (editor state — never stage it). 162 tracked files:
+  upstream's 150, minus the five P0 deleted (four `clipper-lib`/PubRemote files under `src/` and `public/CNAME`), plus
+  `CLAUDE.md`, `AGENTS.md`, `HANDOFF.md` and `docs/` (17 files, committed in `484c623`…`4b1d978`). **Stage explicitly —
   never `git add -A`.**
-- **Working tree = upstream `master` exactly for everything under `src/`, `public/` and the tool config, plus
-  the committed guides and docs.** `dist/` and `node_modules/` exist locally and are gitignored.
+- **Working tree = upstream `master` plus the committed guides and docs, minus P0's deletions.** Everything else under
+  `src/`, `public/` and the tool config is byte-identical to upstream; `package.json` dropped four dependencies
+  (`clipper-lib`, `lodash`, `@types/lodash`, `@types/uuid`) and the stale `homepage`. `dist/` and `node_modules/` exist
+  locally and are gitignored.
 - **Git identity is configured locally** (2026-09-08): `git config user.name` / `user.email` in this repo
   resolve `git var GIT_AUTHOR_IDENT` → `Liam Thompson <liamstar@gmail.com>`. Worktrees inherit it; the
   **global** config is still unset, so any other clone needs its own. Confirm with `git var GIT_AUTHOR_IDENT`
@@ -166,20 +172,23 @@ npx tsc -p tsconfig.app.json --noEmit 2>&1 | grep 'error TS' \
   | sed -E 's/\(([0-9]+),([0-9]+)\)//' | LC_ALL=C sort > /tmp/tsc-before-$PHASE.txt    # 18 lines; pin the locale on both sides
 ```
 
-P0 is four serial commits (`IMPLEMENTATION-PLAN.md` §P0): write D1's and D2's carve-outs into root §5.2,
+P0 **landed**: PR #2, merged into `gripsmith` as `fb62ba9` (`16eeded`, `6800013`, `3179b70`, `5cd73ce`; every plan-row
+deviation is recorded in the commit bodies). It was four serial commits (`IMPLEMENTATION-PLAN.md` §P0): write D1's and
+D2's carve-outs into root §5.2,
 amend root §5.1 for D5, and correct the M0 exit counts across the whole doc set; record D3 and strike the
 **ten** blocking markers plus the two losing persistence mechanisms; delete the dead `clipper-lib` tree and
 the PubRemote leftovers; delete `public/CNAME` and add an `origin` remote.
 
-**P0 is strictly first and strictly serial.** The docs on disk still carry blocking markers that D1/D2/D3/D5
-resolve — `docs/02-generator-engine.md:4`, `:55`, `:132`, `:255`, `:480`; `docs/03-generators.md:54`, `:175`,
+**P0 was strictly first and strictly serial.** Before it, the docs on disk carried blocking markers that D1/D2/D3/D5
+resolve — then at `docs/02-generator-engine.md:4`, `:55`, `:132`, `:255`, `:480`; `docs/03-generators.md:54`, `:175`,
 `:621`, `:640`, `:672`; `docs/04-parametric-controls.md:296`; and `docs/05-direct-editing.md` §8 question 6.
-**All ten are real — each was opened and confirmed.** Verify P0 commit 2 by re-reading each of the ten, not
-by counting. An agent that starts P4 or P5 before P0 lands will read one of those and correctly halt. P0
-exists to close that gap.
+**All ten were real — each was opened and confirmed**, and P0 commit 2 struck them (verified by re-reading each, not
+by counting, across three cross-vendor review rounds). An agent that started P4 or P5 before P0 would have read one
+of those and correctly halted; that gap is closed.
 
-After P0, four phases run concurrently: **P1** (doc 08, seeding), **P2** (doc 01), **P3** (doc 06a, flat
-export) and **P7** (doc 04 half A, **minus commit 81** — A-16 needs P4 commit 38 and must be held).
+After P0 — **wave 1, in flight since 2026-09-22** — four phases run concurrently, each on its own `phase/P<n>` branch in
+its own worktree, each opening its own PR against `gripsmith`: **P1** (doc 08, seeding), **P2** (doc 01), **P3** (doc
+06a, flat export) and **P7** (doc 04 half A, **minus commit 81** — A-16 needs P4 commit 38 and must be held).
 **They are near-independent, but they DO share files** — eight of them; see the plan's merge-order collision
 table (`docs/IMPLEMENTATION-PLAN.md` §"Merge order"). Two pairs bite hardest: **P1 commit 9 and P2 commit 21
 both append to `src/types/schemas.ts`** (merge P1 first — only P1 touches the `items` default literal), and
@@ -318,14 +327,14 @@ amendment is ADOPTED** (2026-09-03) and is already written into `docs/00-archite
 conditions. 06b remains *sequenced* behind M3 — it needs a 2D pattern unit worth projecting — but it is not
 waiting on a person.
 
-**Before any deploy — mechanical, owned by P0 commit 4:** `public/CNAME` contains `studio.grippysheet.com`,
-the upstream author's domain, and `gh-pages -d dist` copies `public/` into the published branch — **delete
-it**. And **add an `origin` remote**; only `upstream` exists today, so `pnpm deploy:gh` fails — the fork URL
-is not derivable from the tree, so P0 commit 4 has to ask for it. Do **not** set
+**Deploy safety — done, P0 commit 4 (`5cd73ce`):** `public/CNAME` (it named `studio.grippysheet.com`, the upstream
+author's domain, and `gh-pages -d dist` copies `public/` into the published branch) and the stale `homepage` in
+`package.json` are **deleted**, and **`origin` → `git@github.com:Imminent-Latency/gripsmith.git` is added** (`upstream`
+stays; never reuse it as `origin`). What remains is `base`: do **not** set
 `base` in `vite.config.ts` (commented out at **`vite.config.ts:16-17`**, with a stale `'/PubRemote/'` value
 from another project) until P2's `src/utils/assetUrl.ts` lands — flipping it early 404s all 8 root-absolute
 `public/` fetches. **P2 commit 18 both lands the helper and sets `base`; no other commit does.**
-(Root `00-architecture.md:366` still cites the stale range `:15-16`; P0 commit 1 corrects it.)
+(P0 commit 1 corrected root `00-architecture.md`'s stale `:15-16` cite; it now reads `vite.config.ts:16-17` at `:372`.)
 
 **Genuinely open, needing @liamstar:**
 

@@ -9,7 +9,7 @@
 | | |
 |---|---|
 | **Milestones served** | **M1 — Identity and provenance** (parent §8, in full). Plus the `import.meta.env.BASE_URL` half of **M0 — deploy safety**, which the parent assigns to this doc by name (§7 *Deploy safety*: "this is a hard requirement on doc 01, not a detail"). |
-| **Blocked by** | Nothing in code. This doc is off the critical path (parent §6 *Revised phasing*: "01 leaves the critical path entirely"). M0's `public/CNAME` deletion and the missing `origin` remote block *deploying*, not this work; the value of `base` in `vite.config.ts:16-17` is a deploy decision made elsewhere. |
+| **Blocked by** | Nothing in code. This doc is off the critical path (parent §6 *Revised phasing*: "01 leaves the critical path entirely"). M0's `public/CNAME` deletion and the `origin` remote (both done — P0 commit 4) blocked *deploying*, not this work; the value of `base` in `vite.config.ts:16-17` is a deploy decision made elsewhere. |
 | **Blocks** | Everything that needs `outlineRef`: doc 04's URL share, the design-state hash (parent §7 *Performance*), and any "restore the pad by reference" flow. Parent §8 *Blocked-by chain* records `outlineRef → PatternPreset.id (M1)`. Task 3 below is that unblock. |
 
 ---
@@ -28,7 +28,7 @@ What is left is seven pieces of hardening, all small, none touching the clip/ext
 | 4 | A DXF that parses to zero shapes returns `success: true` (`src/utils/shapeLoader.ts:79`) | The app silently reverts to the 300 mm square **and** the uploader drops back to the empty "Click to upload" state — `hasContent` is `!!props.imageUrl \|\| !!(shapes && shapes.length > 0)` (`src/components/ShapeUploader.tsx:174`) and gates both the pill (`:207-218`) and the green dashed border (`:182`) — so the failure is indistinguishable from never having picked a pad |
 | 5 | Neither `handleOutlineLoaded` (`:31-38`) nor `onClear` (`:48-52`) resets rotation/mirror | A rotation leaks across pad swaps, and after Clear the controls are hidden (`:118`) so it is invisible and unresettable |
 | 6 | `DXFThumbnail` re-parses on every mount; the modal returns `null` when closed (`src/components/PatternLibraryModal.tsx:120`) | All 17 DXFs re-parse synchronously on every modal open |
-| 7 | 8 asset URLs are root-absolute; `import.meta.env.BASE_URL` has zero uses in `src/` | Works only because `public/CNAME` points at a custom apex domain. Every built-in pad 404s on a project-page deploy — *in production only* |
+| 7 | 8 asset URLs are root-absolute; `import.meta.env.BASE_URL` has zero uses in `src/` | Worked only because `public/CNAME` pointed at a custom apex domain — deleted in P0 commit 4. Every built-in pad 404s on a project-page deploy — *in production only* |
 
 ## 2. Goals / Non-Goals
 
