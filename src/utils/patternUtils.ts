@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { DEFAULT_SEED, rngFor } from './random/prng';
 
 export interface TileInstance {
     position: THREE.Vector2;
@@ -295,10 +296,13 @@ export const generateTilePositions = (
     direction: 'horizontal' | 'vertical' = 'horizontal',
     exclusionShapes: THREE.Shape[] | null = null,
     inclusionShapes: THREE.Shape[] | null = null,
-    avoidShapes: THREE.Shape[] | null = null
+    avoidShapes: THREE.Shape[] | null = null,
+    seed: number = DEFAULT_SEED
 ): TileInstance[] => {
     // Safety check
     if (!bounds) return [];
+    const posRng = rngFor(seed, 'pos');
+    const rotRng = rngFor(seed, 'rot');
 
     const positions: TileInstance[] = [];
 
@@ -461,7 +465,7 @@ export const generateTilePositions = (
     const alignCenter = new THREE.Vector2();
     bounds.getCenter(alignCenter);
     const getRotation = (c: number, r: number, x: number, y: number): number => {
-        if (orientation === 'random') return Math.random() * Math.PI * 2;
+        if (orientation === 'random') return rotRng() * Math.PI * 2;
         if (orientation === 'alternate') {
             // Checkerboard
             return ((c + r) % 2 !== 0) ? Math.PI / 2 : 0;
@@ -501,8 +505,8 @@ export const generateTilePositions = (
 
         while (attempts < maxAttempts && count < maxTiles) {
             attempts++;
-            const rx = startX + Math.random() * effSpanW;
-            const ry = startY + Math.random() * effSpanH;
+            const rx = startX + posRng() * effSpanW;
+            const ry = startY + posRng() * effSpanH;
 
             // 1. Check Collision with existing
             let collision = false;
