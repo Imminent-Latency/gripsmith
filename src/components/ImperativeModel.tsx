@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { eventBus } from "../utils/eventBus";
 import * as THREE from 'three';
+import { transformOutlinePoints } from '../utils/geometry/outlineTransform';
 import { generateTilePositions, getShapesBounds, TileInstance } from '../utils/patternUtils';
 import { PatternJob } from '../utils/geometry/patternPipeline';
 import { InlayJob, InlayJobItem } from '../utils/geometry/inlayPipeline';
@@ -179,27 +180,7 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
       sources.forEach(shape => {
           let pts = shape.getPoints();
 
-          // 1. Mirror
-          if (baseOutlineMirror) {
-              pts = pts.map(p => new THREE.Vector2(-p.x, p.y));
-          }
-
-          // 2. Rotate
-          if (baseOutlineRotation !== 0) {
-              const rad = baseOutlineRotation * (Math.PI / 180);
-              const cos = Math.cos(rad);
-              const sin = Math.sin(rad);
-              pts = pts.map(p => new THREE.Vector2(
-                  p.x * cos - p.y * sin,
-                  p.x * sin + p.y * cos
-              ));
-          }
-
-          // 3. Enforce Winding
-          // Mirror flips winding. Explicit reverse if mirrored.
-          if (baseOutlineMirror) {
-              pts.reverse();
-          }
+          pts = transformOutlinePoints(pts, { mirror: baseOutlineMirror, rotationDeg: baseOutlineRotation });
 
           const newShape = new THREE.Shape(pts);
           filled.push(newShape);
@@ -208,24 +189,7 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
               shape.holes.forEach((h: THREE.Path) => {
                     let hPts = h.getPoints();
                     
-                    if (baseOutlineMirror) {
-                        hPts = hPts.map(p => new THREE.Vector2(-p.x, p.y));
-                    }
-                    
-                    if (baseOutlineRotation !== 0) {
-                        const rad = baseOutlineRotation * (Math.PI / 180);
-                        const cos = Math.cos(rad);
-                        const sin = Math.sin(rad);
-                        hPts = hPts.map(p => new THREE.Vector2(
-                            p.x * cos - p.y * sin,
-                            p.x * sin + p.y * cos
-                        ));
-                    }
-
-                    // 4. Enforce Winding for Holes
-                    if (baseOutlineMirror) {
-                         hPts.reverse();
-                    }
+                    hPts = transformOutlinePoints(hPts, { mirror: baseOutlineMirror, rotationDeg: baseOutlineRotation });
 
                     // Convert Path to Shape for CSG extraction
                     const holeShape = new THREE.Shape(hPts);
