@@ -11,7 +11,7 @@ Homebrew must be on `PATH` for `pnpm`/`node`/`npx` (`git` is Apple Git at `/usr/
 
 | Task | Command | Today |
 |---|---|---|
-| Test | `pnpm test` | 21 files / 162 tests green (**20 / 155** once P0 deletes `offsetUtils.test.ts`) |
+| Test | `pnpm test` | **20 files / 155 tests** green at `fb62ba9` (P0 commit 3 deleted `offsetUtils.test.ts`; upstream baseline was 21 / 162) |
 | Build | `pnpm build` | exit 0. **Does not typecheck.** |
 | Typecheck | `npx tsc -p tsconfig.app.json --noEmit` | **18 pre-existing errors.** No `typecheck` script exists. |
 | Lint | `pnpm lint` | exit 0 with 42 warnings, 0 errors — no rule at `eslint.config.js:20-38` is `'error'` and two are `'off'` (`no-explicit-any` `:26`, `no-empty` `:38`), so it is silent on `any` and empty blocks. **But it CAN fail:** `:10` extends `js.configs.recommended` (61 error rules) and `:21` spreads react-hooks, setting `rules-of-hooks: 'error'`. A **non-zero exit is real** |
@@ -89,8 +89,8 @@ Full set of 20 in `docs/IMPLEMENTATION-PLAN.md` §"Cross-cutting rules". These b
    commit or `pnpm build` fails. `src/` has zero dynamic imports today.
 10. **Append tiler parameters, never insert.** `generateTilePositions` has 13 positional params
     (`src/utils/patternUtils.ts:285-299`) across **15 call sites**; inserting silently rebinds arguments.
-11. **`clipper-lib` is dead** (`src/utils/offsetUtils.ts:2`; that module is imported only by its own test) and is
-    deleted by P0 commit 3 (M0); the live 2D engine is manifold-3d `CrossSection`. **Never gate on a bare
+11. **`clipper-lib` is gone** — the dead `src/utils/offsetUtils.ts` (imported only by its own test) was deleted by
+    P0 commit 3 (M0) together with `src/types/clipper-lib.d.ts`; the live 2D engine is manifold-3d `CrossSection`. **Never gate on a bare
     `grep -rni clipper`** — two correct Clipper2 references survive (`patternPipeline.ts:11`,
     `src/utils/geometry/manifoldCache.test.ts:164`). Gate on
     `grep -rn "clipper-lib\|ClipperLib\|ClipperOffset" src/ package.json`.
@@ -111,9 +111,10 @@ Full set of 20 in `docs/IMPLEMENTATION-PLAN.md` §"Cross-cutting rules". These b
 inherit it, the global config is still unset) — **confirm with `git var GIT_AUTHOR_IDENT` before the first commit in any
 tree.** With them unset git does not fail: it invents `<user>@<hostname>.local`, and no gate catches it. **Stage
 explicitly (`git add <the row's paths>`) — never `git add -A`**: `CLAUDE.md`, `AGENTS.md`, `HANDOFF.md` and `docs/` are
-tracked (`484c623`…`4b1d978`), and stray untracked files such as `.cursor/` must never ride along. There is no `origin`
-remote yet — only `upstream` (`techfoundrynz/grippysheet-studio.git`), which must not be reused as `origin`; the user
-adds it (P0 commit 4 asks). End every commit message with: `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`
+tracked (`484c623`…`4b1d978`), and stray untracked files such as `.cursor/` must never ride along. `origin` is
+`git@github.com:Imminent-Latency/gripsmith.git` — PRs target its `gripsmith` branch; always pass `--repo` to `gh`, which
+otherwise prefers the remote *named* `upstream` (`techfoundrynz/grippysheet-studio.git`; never reuse it as `origin`).
+End every commit message with: `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`
 
 ## Upstream mergeability
 
