@@ -4,6 +4,7 @@ interface DebouncedInputProps extends Omit<React.InputHTMLAttributes<HTMLInputEl
   value: number | string;
   onChange: (value: number | string) => void;
   debounce?: number;
+  revision?: number;
 }
 
 /**
@@ -21,13 +22,14 @@ const DebouncedInput: React.FC<DebouncedInputProps> = ({
   value: initialValue,
   onChange,
   debounce = DEFAULT_DEBOUNCE_MS,
+  revision,
   ...props
 }) => {
   const [value, setValue] = useState(initialValue);
 
   useEffect(() => {
     setValue(initialValue);
-  }, [initialValue]);
+  }, [initialValue, revision]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
