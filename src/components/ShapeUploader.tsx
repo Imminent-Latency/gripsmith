@@ -179,7 +179,7 @@ const ShapeUploader: React.FC<ShapeUploaderProps> = (props) => {
         <div className="flex items-center justify-center w-full">
             <label 
                 htmlFor={inputId}
-                className={`flex flex-col items-center justify-center w-full h-[150px] border-2 border-dashed rounded-lg cursor-pointer transition-colors ${hasContent ? 'border-green-500 bg-gray-700/50 py-2' : 'border-gray-600 bg-gray-700 hover:bg-gray-600'}`}
+                className={`flex flex-col items-center justify-center w-full h-[150px] border-2 border-dashed rounded-lg cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-purple-500 ${hasContent ? 'border-green-500 bg-gray-700/50 py-2' : 'border-gray-600 bg-gray-700 hover:bg-gray-600'}`}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
             >
@@ -224,7 +224,7 @@ const ShapeUploader: React.FC<ShapeUploaderProps> = (props) => {
                         </>
                     )}
                 </div>
-                {!hasContent && <input id={inputId} type="file" className="hidden" accept={acceptString} onChange={handleFileChange} />}
+                <input id={inputId} type="file" className="sr-only" accept={acceptString} onChange={handleFileChange} />
             </label>
         </div> 
       </ControlField>
