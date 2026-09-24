@@ -45,7 +45,7 @@ const BaseControls: React.FC<BaseControlsProps> = ({
         <ShapeUploader 
             label="Upload Outline" 
             shapes={cutoutShapes || null}
-            fileName={fileName}
+            fileName={fileName ?? settings.outlineRef?.name ?? null}
             onUpload={(loadedShapes, name, type, content) => handleOutlineLoaded(loadedShapes, name, type, content)}
             onClear={() => {
                 updateSettings(outlineCleared());
