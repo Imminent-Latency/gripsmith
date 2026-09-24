@@ -162,9 +162,9 @@ Eight sites build root-absolute URLs and there are **zero** uses of `import.meta
 | `src/components/controls/GeometryControls.tsx:184` | `fetch(...)` — STL branch |
 | `src/components/controls/GeometryControls.tsx:194` | `fetch(...)` — DXF/SVG branch |
 | `src/components/controls/InlayControls.tsx:277` | `fetch(...)` |
-| `src/components/PatternLibraryModal.tsx:215` | `url=` → `STLThumbnail` |
-| `src/components/PatternLibraryModal.tsx:223` | `url=` → `DXFThumbnail` (which fetches at `src/components/DXFThumbnail.tsx:24`) |
-| `src/components/PatternLibraryModal.tsx:229` | `src=` on `<img>` |
+| `src/components/PatternLibraryModal.tsx:215` (`:158` after row 15's extraction) | `url=` → `STLThumbnail` |
+| `src/components/PatternLibraryModal.tsx:223` (`:166` after row 15) | `url=` → `DXFThumbnail` (which fetches at `src/components/DXFThumbnail.tsx:24`) |
+| `src/components/PatternLibraryModal.tsx:229` (`:172` after row 15) | `src=` on `<img>` |
 | `src/components/ThumbnailGenerator.tsx:29` | `url=` → `ThumbnailScene` |
 
 ```ts
@@ -375,7 +375,7 @@ Every shared file touched, with the exact anchor and why isolation fails there. 
 
 ### Acceptance criteria
 
-Every criterion is a command plus an assertion. New test files: `src/utils/outline/catalog.test.ts`, `src/utils/outline/catalog.extents.test.ts`, `src/utils/outline/outlineCache.test.ts`, `src/utils/outline/outlineState.test.ts`, `src/utils/assetUrl.test.ts`.
+Every criterion is a command plus an assertion. **A1's five-file delta is a phase-exit assertion (evaluated at row 24), not a per-row one — the files accrue across rows 16–22.** New test files: `src/utils/outline/catalog.test.ts`, `src/utils/outline/catalog.extents.test.ts`, `src/utils/outline/outlineCache.test.ts`, `src/utils/outline/outlineState.test.ts`, `src/utils/assetUrl.test.ts`.
 
 - **A1 — nothing regressed.** `pnpm test` passes. The suite gains exactly the 5 test files named above and loses none — **assert the delta, not the absolute**, because parent §8 M0 deletes `src/utils/offsetUtils.test.ts` (`docs/00-architecture.md:378`) and M0 may land first (this doc is "Blocked by: nothing in code"), which would move the 21-file baseline to 20. The only pre-existing test file modified is `src/utils/shapeLoader.test.ts`, which **gains** cases and loses none; its **11 existing test cases** still pass unmodified (they mock `parseDxfToShapes` and `SVGLoader.createShapes` to return one shape — `src/utils/shapeLoader.test.ts:41`, `:22` — so the zero-shape guard never fires for them).
 - **A2 — identity.** `npx vitest run src/utils/outline/catalog.test.ts` asserts: `PRESETS.length === 43`; every `id` matches `/^(outline|pattern|inlay)\/[a-z0-9][a-z0-9-]*$/`; `new Set(PRESETS.map(p => p.id)).size === 43`; the 17 outline ids **deep-equal a literal array inlined in the test**. *(The provenance-presence assertion is deliberately **not** here — `provenance` does not exist until task 10, so it lives in A8.)*
