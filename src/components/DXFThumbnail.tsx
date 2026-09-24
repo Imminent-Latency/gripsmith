@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { parseDxfToShapes, generateSVGPath } from '../utils/dxfUtils';
-import * as THREE from 'three';
+import { loadOutline } from '../utils/outline/outlineCache';
 
 interface DXFThumbnailProps {
     url: string;
@@ -21,45 +20,10 @@ const DXFThumbnail: React.FC<DXFThumbnailProps> = ({ url, alt, className, stroke
         const loadDxf = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('Failed to fetch DXF');
-                const text = await response.text();
-                
+                const outline = await loadOutline(url);
                 if (!mounted) return;
-
-                const shapes = parseDxfToShapes(text);
-                if (shapes && shapes.length > 0) {
-                     const path = generateSVGPath(shapes);
-                     
-                     // Calculate bounds for ViewBox
-                     const bounds = new THREE.Box2();
-                     shapes.forEach(s => {
-                         s.getPoints().forEach((p: THREE.Vector2) => {
-                             bounds.expandByPoint(p);
-                         });
-                     });
-
-                     if (!bounds.isEmpty()) {
-                        const min = bounds.min;
-                        const max = bounds.max;
-                        const width = max.x - min.x;
-                        const height = max.y - min.y;
-                        const padding = Math.max(width, height) * 0.1;
-                        // Transform for SVG locally (scale 1, -1) handled in render or viewBox?
-                        // generateSVGPath outputs raw coordinates. SVG usually +Y down. ThreeJS +Y up.
-                        // To render correctly upright, we typically scale(1, -1).
-                        // If we scale(1, -1), y becomes -y.
-                        // Bounds: min.y ... max.y.  Scaled: -max.y ... -min.y.
-                        // So viewBox top-left y should be -max.y.
-                         
-                        setViewBox(`${min.x - padding} ${-max.y - padding} ${width + padding * 2} ${height + padding * 2}`);
-                        setPathData(path);
-                     } else {
-                         setError(true);
-                     }
-                } else {
-                    setError(true);
-                }
+                setViewBox(outline.viewBox);
+                setPathData(outline.pathData);
             } catch (err) {
                 console.error("Error loading DXF thumbnail:", err);
                 if (mounted) setError(true);

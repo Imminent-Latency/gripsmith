@@ -9,7 +9,7 @@ import DebouncedInput from '../DebouncedInput';
 import ToggleButton from '../ui/ToggleButton';
 import PatternLibraryModal, { PatternPreset } from '../PatternLibraryModal';
 import { useAlert } from '../../context/AlertContext';
-import { parseShapeFile } from '../../utils/shapeLoader';
+import { loadOutline } from '../../utils/outline/outlineCache';
 
 interface BaseControlsProps {
   settings: BaseSettings;
@@ -71,17 +71,9 @@ const BaseControls: React.FC<BaseControlsProps> = ({
             onSelect={async (preset: PatternPreset) => {
                 setShowLibrary(false);
                 try {
-                    const response = await fetch(assetUrl(preset.category, preset.file));
-                    if (!response.ok) throw new Error('Failed to fetch');
-                    const text = await response.text();
-                    
                     if (preset.type === 'dxf' || preset.type === 'svg') {
-                        const result = parseShapeFile(text, preset.type as 'dxf'|'svg');
-                        if (result.success) {
-                            handleOutlineLoaded(result.shapes, preset.name, preset.type, text);
-                        } else {
-                            throw new Error(result.error);
-                        }
+                        const outline = await loadOutline(assetUrl(preset.category, preset.file));
+                        handleOutlineLoaded(outline.shapes, preset.name, preset.type, outline.text);
                     }
                 } catch (error) {
                     console.error("Failed to load outline:", error);
