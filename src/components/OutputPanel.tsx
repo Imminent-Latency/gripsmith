@@ -5,15 +5,35 @@ import { useAlert } from '../context/AlertContext';
 import { exportTo3MF } from 'three-3mf-exporter';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import * as THREE from 'three';
+import { outlineToCutPaths } from '../utils/export/outlineContours';
+import { hasSelfIntersection } from '../utils/export/cutPaths';
+import { writeCutSvg } from '../utils/export/svgWriter';
+import { writeCutDxf } from '../utils/export/dxfWriter';
+import { downloadText } from '../utils/export/download';
 
 interface OutputPanelProps {
   meshRef: React.RefObject<THREE.Group | null>;
   debugMode?: boolean;
   className?: string;
+  cutoutShapes?: THREE.Shape[] | null;
+  baseOutlineMirror?: boolean;
+  baseOutlineRotation?: number;
 }
 
-const OutputPanel: React.FC<OutputPanelProps> = ({ meshRef, debugMode = false, className = '' }) => {
+const OutputPanel: React.FC<OutputPanelProps> = ({ meshRef, debugMode = false, className = '', cutoutShapes, baseOutlineMirror = false, baseOutlineRotation = 0 }) => {
   const { showAlert } = useAlert();
+
+  const handleFlatExport = (format: 'svg' | 'dxf') => {
+    const paths = outlineToCutPaths(cutoutShapes, { mirror: baseOutlineMirror, rotationDeg: baseOutlineRotation });
+    if (!paths || paths.regions.length === 0) {
+      showAlert({ title: 'Export Error', message: 'Load a pad outline before exporting cut paths.', type: 'warning' });
+      return;
+    }
+    if (paths.regions.some(({ shape }) => [shape.points, ...shape.holes].some(hasSelfIntersection))) {
+      showAlert({ title: 'Cut Path Warning', message: 'The outline contains self-intersecting paths. The file has been exported; check the paths before cutting.', type: 'warning' });
+    }
+    downloadText(`gripsmith-outline.${format}`, format === 'svg' ? 'image/svg+xml' : 'application/dxf', format === 'svg' ? writeCutSvg(paths) : writeCutDxf(paths));
+  };
 
   const expandInstancedMesh = (instancedMesh: THREE.InstancedMesh): THREE.Group => {
     const group = new THREE.Group();
@@ -245,6 +265,21 @@ const OutputPanel: React.FC<OutputPanelProps> = ({ meshRef, debugMode = false, c
             >
             <Layers size={16} />
             Export Merged STL
+            </button>
+
+            <button
+            onClick={() => handleFlatExport('svg')}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors border border-gray-600"
+            >
+            <Download size={16} />
+            Cut Paths (SVG)
+            </button>
+            <button
+            onClick={() => handleFlatExport('dxf')}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors border border-gray-600"
+            >
+            <Download size={16} />
+            Cut Paths (DXF)
             </button>
             
             {debugMode && (
