@@ -3,6 +3,7 @@ import { eventBus } from "../utils/eventBus";
 import * as THREE from 'three';
 import { generateTilePositions, getShapesBounds, TileInstance } from '../utils/patternUtils';
 import { PatternJob } from '../utils/geometry/patternPipeline';
+import { DEFAULT_SEED } from '../utils/random/prng';
 import { InlayJob, InlayJobItem } from '../utils/geometry/inlayPipeline';
 import { applyPatternResult, cleanupPatternObjects, ApplyContext } from '../utils/geometry/applyPatternResult';
 import { applyInlayResult, InlayApplyContext } from '../utils/geometry/applyInlayResult';
@@ -31,6 +32,7 @@ interface ImperativeModelProps {
   tilingOrientation?: 'none' | 'alternate' | 'random' | 'aligned';
   baseRotation?: number; // Rotates the PATTERN units
   rotationClamp?: number;
+  seed?: number;
   patternMaxHeight?: number;
   clipToOutline?: boolean;
   baseOutlineRotation?: number; // Rotates the BASE shape
@@ -78,6 +80,7 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
   tilingOrientation = 'aligned',
   baseRotation = 0,
   rotationClamp,
+  seed = DEFAULT_SEED,
   patternMaxHeight,
   clipToOutline = false,
   baseOutlineRotation = 0,
@@ -845,7 +848,7 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
             size, thickness, patternScale, patternScaleZ,
             isTiled, tileSpacing, patternMargin, holeMode,
             tilingDistribution, tilingDirection, tilingOrientation,
-            baseRotation, rotationClamp, patternMaxHeight,
+            baseRotation, rotationClamp, seed, patternMaxHeight,
             clipToOutline, maxInlayExtend,
             filledCutoutShapes: serializeShapes(filledCutoutShapes),
             holeShapes: serializeShapes(holeShapes),
@@ -897,7 +900,7 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
   }, [
       patternScale, patternScaleZ,
       isTiled, tileSpacing, patternMargin, tilingDistribution, tilingOrientation, tilingDirection,
-      clipToOutline, displayMode, inlayItems, baseRotation, rotationClamp,
+      clipToOutline, displayMode, inlayItems, baseRotation, rotationClamp, seed,
       thickness, filledCutoutShapes, holeShapes, patternShapes, size, patternMaxHeight,
       holeMode
   ]);
