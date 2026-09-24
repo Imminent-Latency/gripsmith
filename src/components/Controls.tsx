@@ -5,6 +5,7 @@ import { BaseSettings, InlaySettings, GeometrySettings, ProjectSchemaV1 } from '
 import { parseShapeFile } from '../utils/shapeLoader';
 import { RotateCcw, HelpCircle, ChevronDown, Download, Upload } from 'lucide-react';
 import { useAlert } from '../context/AlertContext';
+import { ParamProvider } from '../context/ParamContext';
 import SegmentedControl from './ui/SegmentedControl';
 import Button from './ui/Button';
 import { calculateInlayScale } from '../utils/patternUtils';
@@ -367,6 +368,7 @@ const Controls: React.FC<ControlsProps> = ({
       <div className={`flex-1 min-h-0 flex flex-col transition-all duration-300 ease-in-out ${isCollapsed ? 'max-h-0 opacity-0 md:max-h-[2000px] md:opacity-100' : 'max-h-[2000px] opacity-100'}`}>
         <div className="flex-1 md:overflow-y-auto overflow-visible custom-scrollbar p-6 flex flex-col gap-6">
             
+            <ParamProvider value={{ base: baseSettings, inlay: inlaySettings, geometry: geometrySettings, selectedInlayItem: inlaySettings.items.find(item => item.id === selectedInlayId) ?? null }}>
             <Freeze freeze={activeTab !== 'base'}>
                 <div className={activeTab === 'base' ? 'block' : 'hidden'}>
                     <BaseControls 
@@ -405,6 +407,7 @@ const Controls: React.FC<ControlsProps> = ({
                 </div>
             </Freeze>
 
+            </ParamProvider>
             {renderFooter("md:hidden pt-6 border-t border-gray-700/50 space-y-4")}
             </div>
 

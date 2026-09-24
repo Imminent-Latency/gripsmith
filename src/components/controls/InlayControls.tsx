@@ -26,8 +26,7 @@ import { parseShapeFile } from "../../utils/shapeLoader";
 import ImageConversionModal from "../ImageConversionModal";
 import { v4 as uuidv4 } from "uuid";
 import ParamField from "../params/ParamField";
-import type { ParamContextValue } from "../../utils/params/types";
-import { defaultBaseSettings, defaultGeometrySettings } from "../../utils/schemaDefaults";
+import { useParamContext } from "../../context/ParamContext";
 
 /** Shapes used for scale/position math. */
 const offsetShapesFor = (item: InlayItem): any[] => item.shapes || [];
@@ -88,10 +87,7 @@ const InlayControls: React.FC<InlayControlsProps> = ({
   }, [baseThickness]);
 
   const selectedItem = items?.find((i) => i.id === selectedInlayId);
-  const paramContext: ParamContextValue = {
-    base: { ...defaultBaseSettings, thickness: baseThickness },
-    inlay: settings, geometry: defaultGeometrySettings, selectedInlayItem: selectedItem ?? null,
-  };
+  const paramContext = useParamContext();
 
   // Helper to update specific item
   const updateItem = (id: string, updates: Partial<InlayItem>) => {

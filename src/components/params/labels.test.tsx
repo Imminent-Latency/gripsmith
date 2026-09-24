@@ -7,6 +7,7 @@ import GeometryControls from '../controls/GeometryControls';
 import InlayControls from '../controls/InlayControls';
 import ControlField from '../ui/ControlField';
 import { AlertProvider } from '../../context/AlertContext';
+import { ParamProvider } from '../../context/ParamContext';
 import { defaultBaseSettings, defaultGeometrySettings, defaultInlaySettings } from '../../utils/schemaDefaults';
 
 vi.mock('../ui/ControlField', async importOriginal => {
@@ -85,7 +86,7 @@ const exclusions = {
 
 describe('T5a: ControlField label associations', () => {
     it.each(scenarios)('%s', (name, panel) => {
-        render(<AlertProvider>{panel}</AlertProvider>);
+        render(<AlertProvider><ParamProvider value={{ base: defaultBaseSettings, inlay: defaultInlaySettings, geometry: defaultGeometrySettings, selectedInlayItem: defaultInlaySettings.items.find(item => item.id === inlayProps.selectedInlayId) ?? null }}>{panel}</ParamProvider></AlertProvider>);
         const fields = screen.getAllByTestId('control-field');
         const unresolved: Record<string, string[]> = {};
         let resolved = 0;
