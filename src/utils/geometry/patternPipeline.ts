@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { ManifoldToplevel, Mat4 } from 'manifold-3d';
 import { generateTilePositions, getShapesBounds } from '../patternUtils';
+import { DEFAULT_SEED } from '../random/prng';
 import { SerializedShape, SerializedGeometry, deserializeShapes, geometryTransferables } from './serialize';
 import { ManifoldOps, M, CS } from './manifoldOps';
 
@@ -64,6 +65,7 @@ export interface PatternJob {
   tilingOrientation: TilingOrientation;
   baseRotation: number;
   rotationClamp?: number;
+  seed?: number;
   patternMaxHeight?: number;
   clipToOutline: boolean;
   maxInlayExtend: number;
@@ -108,7 +110,7 @@ export function generatePattern(job: PatternJob, wasm: ManifoldToplevel): Patter
   const {
     size, thickness, patternScale, patternScaleZ, isTiled, tileSpacing, patternMargin,
     holeMode, tilingDistribution, tilingDirection, tilingOrientation, baseRotation,
-    rotationClamp, patternMaxHeight, clipToOutline, maxInlayExtend,
+    rotationClamp, seed = DEFAULT_SEED, patternMaxHeight, clipToOutline, maxInlayExtend,
   } = job;
 
   // Extrude shapes into a solid tall enough to span the whole model in Z (through-cutter).
@@ -186,7 +188,7 @@ export function generatePattern(job: PatternJob, wasm: ManifoldToplevel): Patter
           filledTHREE.length > 0 ? filledTHREE : null, patternMargin,
           clipToOutline,
           tilingDistribution, tilingOrientation, tilingDirection,
-          exclTHREE, inclTHREE, avoidTHREE,
+          exclTHREE, inclTHREE, avoidTHREE, seed,
         )
       : [{ position: new THREE.Vector2(0, 0), rotation: 0, scale: 1 }];
 
