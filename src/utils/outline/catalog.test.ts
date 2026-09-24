@@ -1,6 +1,14 @@
 import { readdirSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PRESETS } from '../../constants/presets';
+import { BaseSettingsSchema, ProjectSchemaV1 } from '../../types/schemas';
+import { getDefaults, defaultInlaySettings, defaultGeometrySettings } from '../schemaDefaults';
+import { exportProjectBundle, importProjectBundle } from '../projectUtils';
+
+afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+});
 
 describe('preset catalog', () => {
     it('contains the existing 43 presets', () => {
@@ -55,5 +63,39 @@ describe('preset catalog', () => {
             'outline/pintmatix',
             'outline/gosmilox7',
         ]);
+    });
+});
+
+
+describe('outline identity persistence', () => {
+    it('defaults the outline reference directly through getDefaults', () => {
+        expect(getDefaults(BaseSettingsSchema).outlineRef).toBeNull();
+    });
+
+    it('accepts a legacy v1 project without an outline reference', () => {
+        const legacyBase = { size: 300, thickness: 0.6, color: '#000000', cutoutShapes: null };
+        const project = ProjectSchemaV1.parse({
+            version: 1, timestamp: 0, base: legacyBase,
+            inlay: defaultInlaySettings, geometry: defaultGeometrySettings,
+        });
+        expect(project.base.outlineRef).toBeNull();
+    });
+
+    it('round-trips the preset reference through the projectUtils ZIP bundle', async () => {
+        const outlineRef = { kind: 'preset' as const, presetId: 'outline/pint', name: 'Pint' };
+        const createObjectURL = vi.fn<(blob: Blob) => string>().mockReturnValue('blob:outline-bundle');
+        vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() });
+        vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+        await exportProjectBundle(
+            { ...getDefaults(BaseSettingsSchema), outlineRef },
+            defaultInlaySettings, defaultGeometrySettings,
+            { baseOutline: { name: 'pint.dxf', content: 'SECTION\nHEADER', type: 'dxf' } },
+        );
+        expect(createObjectURL).toHaveBeenCalledOnce();
+        const blob = createObjectURL.mock.calls[0][0];
+        const result = await importProjectBundle(new File([blob], 'outline.zip', { type: 'application/zip' }));
+        expect(result.data.base.outlineRef).toEqual(outlineRef);
+        expect(result.importedVersion).toBe(1);
+        expect(result.importedAssets?.baseOutline?.content).toBe('SECTION\nHEADER');
     });
 });
