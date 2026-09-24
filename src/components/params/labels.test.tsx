@@ -73,12 +73,12 @@ const exclusions = {
     },
     'InlayControls single': {
         div: ['Inlay Pattern', 'Modifier', 'Position'], // ShapeUploader x1, InlayControls x2
-        DebouncedInput: ['Scale', 'X (mm)', 'Y (mm)', 'Rotation (deg)', 'Inlay Depth (mm)', 'Inlay Extend (mm)'], // InlayControls x6
+        DebouncedInput: ['Scale', 'X (mm)', 'Y (mm)', 'Rotation (deg)', 'Inlay Extend (mm)'], // InlayControls x5
         ToggleButton: ['Mirror'], // InlayControls x1 (:635)
     },
     'InlayControls tile': {
         div: ['Inlay Pattern', 'Modifier', 'Distribution'], // ShapeUploader x1, InlayControls x2
-        DebouncedInput: ['Scale', 'Spacing (mm)', 'X (mm)', 'Y (mm)', 'Rotation (deg)', 'Inlay Depth (mm)', 'Inlay Extend (mm)'], // InlayControls x7
+        DebouncedInput: ['Scale', 'Spacing (mm)', 'X (mm)', 'Y (mm)', 'Rotation (deg)', 'Inlay Extend (mm)'], // InlayControls x6
         ToggleButton: ['Mirror'], // InlayControls x1 (:635)
     },
 };
