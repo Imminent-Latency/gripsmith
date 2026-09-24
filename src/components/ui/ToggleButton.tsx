@@ -1,6 +1,7 @@
 import React from 'react';
 
 interface ToggleButtonProps {
+  id?: string;
   label: React.ReactNode;
   isToggled: boolean;
   onToggle: () => void;
@@ -10,6 +11,7 @@ interface ToggleButtonProps {
 }
 
 const ToggleButton: React.FC<ToggleButtonProps> = ({
+  id,
   label,
   isToggled,
   onToggle,
@@ -19,6 +21,7 @@ const ToggleButton: React.FC<ToggleButtonProps> = ({
 }) => {
   return (
     <button
+      id={id}
       onClick={onToggle}
       title={title}
       className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border ${

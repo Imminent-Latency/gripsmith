@@ -7,6 +7,7 @@ export interface SegmentedControlOption<T extends string> {
 }
 
 interface SegmentedControlProps<T extends string> {
+  id?: string;
   options: SegmentedControlOption<T>[];
   value: T;
   onChange: (value: T) => void;
@@ -14,6 +15,7 @@ interface SegmentedControlProps<T extends string> {
 }
 
 export function SegmentedControl<T extends string>({
+  id,
   options,
   value,
   onChange,
@@ -25,6 +27,7 @@ export function SegmentedControl<T extends string>({
         const isActive = value === option.value;
         return (
           <button
+            id={isActive ? id : undefined}
             key={option.value}
             onClick={() => onChange(option.value)}
             className={`flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md text-sm font-medium transition-all ${
