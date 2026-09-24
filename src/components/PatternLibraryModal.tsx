@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { assetUrl } from '../utils/assetUrl';
 import { X, ExternalLink, Box } from 'lucide-react';
 import STLThumbnail from './STLThumbnail';
 import DXFThumbnail from './DXFThumbnail';
@@ -155,7 +156,7 @@ const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClo
                             <div className="w-full aspect-square bg-gray-900 rounded-md flex items-center justify-center p-4">
                                 {preset.type === 'stl' ? (
                                     <STLThumbnail 
-                                        url={`/${preset.category}/${preset.file}`}
+                                        url={assetUrl(preset.category, preset.file)}
                                         alt={preset.name}
                                         className="w-full h-full object-contain"
                                         interactive={interactiveFile === preset.file}
@@ -163,13 +164,13 @@ const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClo
                                     />
                                 ) : preset.type === 'dxf' ? (
                                     <DXFThumbnail
-                                        url={`/${preset.category}/${preset.file}`}
+                                        url={assetUrl(preset.category, preset.file)}
                                         alt={preset.name}
                                         className="w-full h-full"
                                     />
                                 ) : (
                                     <img 
-                                        src={`/${preset.category}/${preset.file}`}
+                                        src={assetUrl(preset.category, preset.file)}
                                         alt={preset.name}
                                         className={`w-full h-full object-contain opacity-70 group-hover:opacity-100 transition-opacity ${
                                             preset.keepOriginalColors ? '' : 'invert'

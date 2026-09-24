@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { assetUrl } from "../../utils/assetUrl";
 import { GeometrySettings } from "../../types/schemas";
 import {
   BookOpen,
@@ -181,7 +182,7 @@ const GeometryControls: React.FC<GeometryControlsProps> = ({
           setShowPatternLibrary(false);
           try {
             if (preset.type === "stl") {
-               const response = await fetch(`/${preset.category}/${preset.file}`);
+               const response = await fetch(assetUrl(preset.category, preset.file));
                const buffer = await response.arrayBuffer();
                
               const loader = new STLLoader();
@@ -191,7 +192,7 @@ const GeometryControls: React.FC<GeometryControlsProps> = ({
 
             } else {
                // For DXF/SVG, we need text content
-               const response = await fetch(`/${preset.category}/${preset.file}`);
+               const response = await fetch(assetUrl(preset.category, preset.file));
                const text = await response.text();
                
                const result = parseShapeFile(text, preset.type as 'dxf' | 'svg');

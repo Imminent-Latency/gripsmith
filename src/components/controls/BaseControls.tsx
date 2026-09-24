@@ -1,4 +1,5 @@
 import React from 'react';
+import { assetUrl } from '../../utils/assetUrl';
 import { BaseSettings } from '../../types/schemas';
 import { COLORS } from '../../constants/colors';
 import { FlipHorizontal, BookOpen } from 'lucide-react';
@@ -69,7 +70,7 @@ const BaseControls: React.FC<BaseControlsProps> = ({
             onSelect={async (preset: PatternPreset) => {
                 setShowLibrary(false);
                 try {
-                    const response = await fetch(`/${preset.category}/${preset.file}`);
+                    const response = await fetch(assetUrl(preset.category, preset.file));
                     if (!response.ok) throw new Error('Failed to fetch');
                     const text = await response.text();
                     

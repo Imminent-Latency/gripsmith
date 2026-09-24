@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { assetUrl } from "../../utils/assetUrl";
 import { InlaySettings, InlayItem } from "../../types/schemas";
 import {
   Palette,
@@ -274,7 +275,7 @@ const InlayControls: React.FC<InlayControlsProps> = ({
         onSelect={async (preset) => {
           setShowInlayLibrary(false);
           try {
-            const response = await fetch(`/${preset.category}/${preset.file}`);
+            const response = await fetch(assetUrl(preset.category, preset.file));
             const text = await response.text();
 
             // Use shared loader logic

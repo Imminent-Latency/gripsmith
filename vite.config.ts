@@ -13,8 +13,7 @@ export default defineConfig({
       },
     }),
   ],
-  // Only needed if hosted without custom domain
-  // base: '/PubRemote/',
+  base: '/gripsmith/',
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
