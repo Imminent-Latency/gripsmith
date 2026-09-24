@@ -51,6 +51,7 @@ const BaseControls: React.FC<BaseControlsProps> = ({
                 setFileName(null);
                 if (onOutlineAssetChanged) onOutlineAssetChanged(null);
             }}
+            onError={(message) => showAlert({ title: 'Error Loading Outline', message, type: 'error' })}
             allowedTypes={['dxf']}
             adornment={
                 <button
@@ -86,7 +87,7 @@ const BaseControls: React.FC<BaseControlsProps> = ({
                     console.error("Failed to load outline:", error);
                     showAlert({
                         title: "Error Loading Outline",
-                        message: "Failed to load the selected outline preset.",
+                        message: error instanceof Error ? error.message : "Failed to load the selected outline preset.",
                         type: "error"
                     });
                 }

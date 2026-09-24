@@ -11,6 +11,7 @@ interface ShapeUploaderProps {
   fileName: string | null;
   onUpload?: (shapes: any[], fileName: string, type: 'dxf' | 'svg' | 'stl', fileContent?: string | ArrayBuffer) => void;
   onClear: () => void;
+  onError?: (message: string) => void;
   className?: string;
   allowedTypes?: ('dxf' | 'svg' | 'stl' | 'image')[];
   extractColors?: boolean;
@@ -134,6 +135,8 @@ const ShapeUploader: React.FC<ShapeUploaderProps> = (props) => {
            
            if (result.success) {
                emit(result.shapes, type, text);
+           } else {
+               props.onError?.(result.error || 'Failed to parse shape file');
            }
       }
     };
