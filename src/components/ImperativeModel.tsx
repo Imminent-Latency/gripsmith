@@ -266,7 +266,9 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
                  'none', 
                  'horizontal',
                  null, 
-                 null
+                 null,
+                 null,
+                 item.seed ?? DEFAULT_SEED
              );
         } else {
              return [{ 
