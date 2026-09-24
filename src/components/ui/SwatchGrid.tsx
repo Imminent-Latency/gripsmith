@@ -18,7 +18,7 @@ export default function SwatchGrid({ id, label = 'Color', value, onChange, class
             {Object.entries(COLORS).map(([name, color]) => (
                 <button type="button" key={color} onClick={() => onChange(color)}
                     aria-pressed={value === color}
-                    className={`w-6 h-6 rounded-md transition-all hover:scale-110 active:scale-95 ${value === color ? 'ring-2 ring-white' : 'hover:ring-1 hover:ring-white/50'}`}
+                    className={`w-6 h-6 rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 hover:scale-110 active:scale-95 ${value === color ? 'ring-2 ring-white' : 'hover:ring-1 hover:ring-white/50'}`}
                     style={{ backgroundColor: color }} title={name} />
             ))}
         </div>
