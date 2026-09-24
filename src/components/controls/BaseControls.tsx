@@ -10,6 +10,7 @@ import ToggleButton from '../ui/ToggleButton';
 import PatternLibraryModal, { PatternPreset } from '../PatternLibraryModal';
 import { useAlert } from '../../context/AlertContext';
 import { loadOutline } from '../../utils/outline/outlineCache';
+import { outlineUpdate, outlineCleared } from '../../utils/outline/outlineState';
 
 interface BaseControlsProps {
   settings: BaseSettings;
@@ -29,8 +30,8 @@ const BaseControls: React.FC<BaseControlsProps> = ({
   const [showLibrary, setShowLibrary] = React.useState(false);
   const { showAlert } = useAlert();
 
-  const handleOutlineLoaded = (shapes: any[], name: string | null, type?: 'dxf'|'svg'|'stl', content?: string | ArrayBuffer) => {
-      updateSettings({ cutoutShapes: shapes });
+  const handleOutlineLoaded = (shapes: any[], name: string | null, type?: 'dxf'|'svg'|'stl', content?: string | ArrayBuffer, ref: BaseSettings['outlineRef'] = name ? { kind: 'upload', presetId: null, name } : null) => {
+      updateSettings(outlineUpdate(shapes, ref));
       setFileName(name);
       onOutlineLoaded(shapes);
       if (name && content && type && onOutlineAssetChanged) {
@@ -47,7 +48,7 @@ const BaseControls: React.FC<BaseControlsProps> = ({
             fileName={fileName}
             onUpload={(loadedShapes, name, type, content) => handleOutlineLoaded(loadedShapes, name, type, content)}
             onClear={() => {
-                updateSettings({ cutoutShapes: [] });
+                updateSettings(outlineCleared());
                 setFileName(null);
                 if (onOutlineAssetChanged) onOutlineAssetChanged(null);
             }}
@@ -73,7 +74,7 @@ const BaseControls: React.FC<BaseControlsProps> = ({
                 try {
                     if (preset.type === 'dxf' || preset.type === 'svg') {
                         const outline = await loadOutline(assetUrl(preset.category, preset.file));
-                        handleOutlineLoaded(outline.shapes, preset.name, preset.type, outline.text);
+                        handleOutlineLoaded(outline.shapes, preset.name, preset.type, outline.text, { kind: 'preset', presetId: preset.id, name: preset.name });
                     }
                 } catch (error) {
                     console.error("Failed to load outline:", error);
