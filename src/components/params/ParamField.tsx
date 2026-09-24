@@ -6,6 +6,7 @@ import DebouncedInput from '../DebouncedInput';
 import ToggleButton from '../ui/ToggleButton';
 import SegmentedControl from '../ui/SegmentedControl';
 import Slider from '../ui/Slider';
+import SwatchGrid from '../ui/SwatchGrid';
 import type { ParamContextValue, ParamDescriptor } from '../../utils/params/types';
 import { clampToDescriptor, resolveDerivable } from '../../utils/params/resolve';
 
@@ -82,8 +83,8 @@ export default function ParamField<S>({ descriptor, settings, onChange, ctx, act
                         return <ToggleButton id={id} label={value ? 'Enabled' : 'Disabled'} isToggled={!!value} onToggle={() => commit(!value)} />;
                     case 'segmented':
                         return <SegmentedControl id={id} value={String(value ?? '')} options={resolveDerivable(descriptor.options, ctx)} onChange={commit} />;
-                    default:
-                        return null;
+                    case 'color':
+                        return <SwatchGrid id={id} label={descriptor.label} value={String(value ?? '')} onChange={commit} showLabel={false} />;
                 }
             }}
         </ControlField>

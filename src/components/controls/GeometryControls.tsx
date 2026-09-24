@@ -8,7 +8,7 @@ import {
   ChevronDown,
   Scissors,
 } from "lucide-react";
-import { COLORS } from "../../constants/colors";
+import SwatchGrid from "../ui/SwatchGrid";
 import ShapeUploader from "../ShapeUploader";
 import ControlField from "../ui/ControlField";
 import DebouncedInput from "../DebouncedInput";
@@ -548,24 +548,7 @@ const GeometryControls: React.FC<GeometryControlsProps> = ({
             </div>
           </div>
 
-          <div className="space-y-2 pt-2 border-t border-gray-800">
-            <label className="text-sm font-medium text-gray-300">Color</label>
-            <div className="grid grid-cols-7 gap-y-2 p-1.5 bg-gray-800 rounded-lg border border-gray-700 w-full justify-items-center">
-              {Object.entries(COLORS).map(([name, value]) => (
-                <button
-                  key={value}
-                  onClick={() => updateSettings({ patternColor: value })}
-                  className={`w-6 h-6 rounded-md transition-all hover:scale-110 active:scale-95 ${
-                    patternColor === value
-                      ? "ring-2 ring-white"
-                      : "hover:ring-1 hover:ring-white/50"
-                  }`}
-                  style={{ backgroundColor: value }}
-                  title={name}
-                />
-              ))}
-            </div>
-          </div>
+          <SwatchGrid value={patternColor} onChange={value => updateSettings({ patternColor: value })} className="pt-2 border-t border-gray-800" />
         </>
       )}
     </section>

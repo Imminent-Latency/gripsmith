@@ -44,6 +44,17 @@ describe('T2: ParamField kinds', () => {
         expect(onChange).toHaveBeenCalledTimes(1);
     });
 
+    it('color names its group, preserves unknown colors, and commits a palette selection', () => {
+        const onChange = vi.fn();
+        render(<ParamField descriptor={{ key: 'patternColor', kind: 'color', label: 'Pattern color', regenerates: false }} settings={{ ...defaultGeometrySettings, patternColor: '#123456' }} ctx={ctx} onChange={onChange} />);
+        expect(screen.getByRole('group', { name: 'Pattern color' })).toBeTruthy();
+        expect(screen.getAllByRole('button')).toHaveLength(21);
+        expect(screen.queryByRole('button', { pressed: true })).toBeNull();
+        expect(onChange).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole('button', { name: 'Red' }));
+        expect(onChange).toHaveBeenCalledWith({ patternColor: '#ef4444' });
+    });
+
     it('select commits synchronously', () => {
         const onChange = vi.fn();
         render(<ParamField descriptor={{ key: 'holeMode', kind: 'select', label: 'Holes', regenerates: true, options: [{ value: 'default', label: 'Default' }, { value: 'avoid', label: 'Avoid' }] }} settings={defaultGeometrySettings} ctx={ctx} onChange={onChange} />);
