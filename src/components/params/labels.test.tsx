@@ -63,14 +63,10 @@ const exclusions = {
         div: ['Grip Geometry'], // ShapeUploader x1
     },
     'GeometryControls place': {
-        div: ['Grip Geometry', 'Holes'], // ShapeUploader x1, GeometryControls x1
-        DebouncedInput: ['Scale X/Y', 'Scale Z', 'Max Height', 'Margin'], // GeometryControls x4
-        ToggleButton: ['Clip to Edge'], // GeometryControls x1 (:511)
+        div: ['Grip Geometry'], // ShapeUploader x1; every panel control now resolves
     },
     'GeometryControls wave': {
-        div: ['Grip Geometry', 'Distribution', 'Direction', 'Orientation', 'Holes'], // ShapeUploader x1, GeometryControls x4
-        DebouncedInput: ['Scale X/Y', 'Scale Z', 'Max Height', 'Spacing', 'Clamp', 'Margin'], // GeometryControls x6
-        ToggleButton: ['Clip to Edge'], // GeometryControls x1 (:511)
+        div: ['Grip Geometry'], // ShapeUploader x1; every panel control now resolves
     },
     'InlayControls single': {
         div: ['Inlay Pattern', 'Modifier', 'Position'], // ShapeUploader x1, InlayControls x2
@@ -86,7 +82,7 @@ const exclusions = {
 
 describe('T5a: ControlField label associations', () => {
     it.each(scenarios)('%s', (name, panel) => {
-        render(<AlertProvider><ParamProvider value={{ base: defaultBaseSettings, inlay: defaultInlaySettings, geometry: defaultGeometrySettings, selectedInlayItem: defaultInlaySettings.items.find(item => item.id === inlayProps.selectedInlayId) ?? null }}>{panel}</ParamProvider></AlertProvider>);
+        render(<AlertProvider><ParamProvider value={{ base: defaultBaseSettings, inlay: defaultInlaySettings, geometry: name.startsWith('GeometryControls') ? panel.props.settings : defaultGeometrySettings, selectedInlayItem: defaultInlaySettings.items.find(item => item.id === inlayProps.selectedInlayId) ?? null }}>{panel}</ParamProvider></AlertProvider>);
         const fields = screen.getAllByTestId('control-field');
         const unresolved: Record<string, string[]> = {};
         let resolved = 0;
