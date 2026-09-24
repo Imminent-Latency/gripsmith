@@ -76,6 +76,9 @@ export const parseShapeFile = (
             return { shapes: [], success: false, error: "Unsupported type" };
         }
 
+        if (detectedType !== 'stl' && loadedShapes.length === 0) {
+            return { shapes: [], success: false, error: `${detectedType.toUpperCase()} parsed to zero shapes` };
+        }
         return { shapes: loadedShapes, success: true };
 
     } catch (err: any) {
