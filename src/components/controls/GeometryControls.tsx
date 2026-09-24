@@ -207,7 +207,7 @@ const GeometryControls: React.FC<GeometryControlsProps> = ({
 
       {patternShapes && patternShapes.length > 0 && (
         <>
-          <div className="space-y-2">
+          <div role="group" aria-label="Layout Mode" className="space-y-2">
             <label className="text-sm font-medium text-gray-300">
               Layout Mode
             </label>

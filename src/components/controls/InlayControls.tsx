@@ -438,7 +438,7 @@ const InlayControls: React.FC<InlayControlsProps> = ({
           
           
           {/* Mode Switch: Place vs Tile */}
-          <div className="space-y-2 mb-4">
+          <div role="group" aria-label="Layout Mode" className="space-y-2 mb-4">
              <label className="text-sm font-medium text-gray-300">
               Layout Mode
             </label>

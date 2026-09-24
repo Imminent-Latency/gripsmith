@@ -133,3 +133,28 @@ describe('T5a: ControlField label associations', () => {
         }
     });
 });
+
+describe('T5b: bare labels name control groups', () => {
+    it.each(scenarios)('%s', (name, panel) => {
+        const { container } = render(<AlertProvider><ParamProvider value={{ base: defaultBaseSettings, inlay: defaultInlaySettings, geometry: name.startsWith('GeometryControls') ? panel.props.settings : defaultGeometrySettings, selectedInlayItem: defaultInlaySettings.items.find(item => item.id === inlayProps.selectedInlayId) ?? null }}>{panel}</ParamProvider></AlertProvider>);
+        const fieldLabels = new Set(screen.getAllByTestId('control-field').map(field => field.querySelector('label')));
+        const groupLabels = Array.from(container.querySelectorAll('label')).filter(label => {
+            if (fieldLabels.has(label)) return false;
+            // The dropzone is a native label/input pair, expressly outside A7.
+            if (label.htmlFor) {
+                expect(document.getElementById(label.htmlFor)).not.toBeNull();
+                return false;
+            }
+            return true;
+        });
+        const expected = name.startsWith('BaseControls') ? ['Color']
+            : name.startsWith('InlayControls') ? ['Layout Mode']
+            : name === 'GeometryControls empty' ? [] : ['Layout Mode', 'Color'];
+        expect(groupLabels.map(label => label.textContent!.trim())).toEqual(expected);
+        for (const label of groupLabels) {
+            const group = label.closest('[role="group"]');
+            expect(group).not.toBeNull();
+            expect(screen.getAllByRole('group', { name: label.textContent!.trim() })).toContain(group);
+        }
+    });
+});
