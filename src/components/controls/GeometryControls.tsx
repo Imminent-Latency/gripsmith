@@ -5,20 +5,18 @@ import {
   Grid3x3,
   MousePointer2,
   Maximize,
-  ChevronDown,
-  Scissors,
 } from "lucide-react";
-import { COLORS } from "../../constants/colors";
+import SwatchGrid from "../ui/SwatchGrid";
 import ShapeUploader from "../ShapeUploader";
-import ControlField from "../ui/ControlField";
-import DebouncedInput from "../DebouncedInput";
 import SegmentedControl from "../ui/SegmentedControl";
-import ToggleButton from "../ui/ToggleButton";
 import PatternLibraryModal from "../PatternLibraryModal";
 import { useAlert } from "../../context/AlertContext";
 import { STLLoader } from "three-stdlib";
 import { getShapesBounds } from "../../utils/patternUtils";
 import { parseShapeFile } from "../../utils/shapeLoader";
+import ParamField from "../params/ParamField";
+import { useParamContext } from "../../context/ParamContext";
+import { geometrySections } from "../params/descriptors/geometry";
 
 interface GeometryControlsProps {
   settings: GeometrySettings;
@@ -34,21 +32,14 @@ const GeometryControls: React.FC<GeometryControlsProps> = ({
   onPatternAssetChanged,
 }) => {
   const { showAlert } = useAlert();
+  const paramContext = useParamContext();
   const {
     patternShapes,
     patternType,
     patternScale,
     patternScaleZ,
     isTiled,
-    tileSpacing,
     patternMargin,
-    holeMode,
-    clipToOutline,
-    tilingDistribution,
-    tilingDirection,
-    tilingOrientation,
-    baseRotation,
-    rotationClamp,
     patternColor,
   } = settings;
 
@@ -216,7 +207,7 @@ const GeometryControls: React.FC<GeometryControlsProps> = ({
 
       {patternShapes && patternShapes.length > 0 && (
         <>
-          <div className="space-y-2">
+          <div role="group" aria-label="Layout Mode" className="space-y-2">
             <label className="text-sm font-medium text-gray-300">
               Layout Mode
             </label>
@@ -248,322 +239,37 @@ const GeometryControls: React.FC<GeometryControlsProps> = ({
             />
           </div>
 
-          <div className="flex gap-4">
-            <div className="space-y-2 flex-1 min-w-0">
-              <ControlField
-                label="Scale X/Y"
-                action={
-                  patternShapes &&
-                  patternShapes.length > 0 && (
-                    <button
-                      onClick={() => {
-                        const newScale = calculateAutoPatternScale(
-                          patternShapes,
-                          patternType,
-                          isTiled,
-                          baseSize,
-                          patternMargin
-                        );
-                        if (newScale !== null) {
-                          updateSettings({ patternScale: newScale });
-                        }
-                      }}
-                      className="text-gray-400 hover:text-purple-400 transition-colors"
-                      title={
-                        isTiled
-                          ? "Auto Scale Tile Pattern"
-                          : "Auto Scale to Fit"
+          {geometrySections.filter(section => !section.visible || section.visible(paramContext)).map((section, index) => (
+            <div key={index} className={section.className}>
+              {section.fields.filter(descriptor => !descriptor.visible || descriptor.visible(paramContext)).map(descriptor => (
+                <div key={descriptor.key} className="space-y-2 flex-1 min-w-0">
+                  <ParamField descriptor={descriptor} settings={settings} ctx={paramContext}
+                    onChange={updates => {
+                      if (updates.patternScale !== undefined && patternScaleZ !== "" && patternScale > 0) {
+                        const ratio = updates.patternScale / patternScale;
+                        updates.patternScaleZ = Math.round(Number(patternScaleZ) * ratio * 1000) / 1000;
                       }
-                    >
-                      <Maximize size={14} />
-                    </button>
-                  )
-                }
-              >
-                <DebouncedInput
-                  type="number"
-                  value={patternScale}
-                  onChange={(val) => {
-                    const newScale = Number(val);
-                    // Proportional Z Scaling
-                    let updateObject: Partial<GeometrySettings> = {
-                      patternScale: newScale,
-                    };
-                    if (patternScaleZ !== "" && patternScale > 0) {
-                      const ratio = newScale / patternScale;
-                      const newZ = Number(patternScaleZ) * ratio;
-                      updateObject.patternScaleZ =
-                        Math.round(newZ * 1000) / 1000;
-                    }
-                    updateSettings(updateObject);
-                  }}
-                  step="0.1"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
-                />
-              </ControlField>
-            </div>
-
-            <div className="space-y-2 flex-1 min-w-0">
-              <ControlField
-                label="Scale Z"
-                tooltip="Leave empty to match X/Y scale"
-              >
-                <DebouncedInput
-                  type="number"
-                  value={patternScaleZ}
-                  onChange={(val) =>
-                    updateSettings({
-                      patternScaleZ: val === "" ? "" : Number(val),
-                    })
-                  }
-                  placeholder="Auto"
-                  min={0.1}
-                  step={0.05}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
-                />
-              </ControlField>
-            </div>
-
-            <div className="space-y-2 flex-1 min-w-0">
-              <ControlField label="Rotate" tooltip="Base rotation in degrees">
-                <DebouncedInput
-                  type="number"
-                  value={baseRotation ?? 0}
-                  onChange={(val) =>
-                    updateSettings({ baseRotation: Number(val) })
-                  }
-                  step="15"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
-                />
-              </ControlField>
-            </div>
-          </div>
-
-          <div className="flex gap-4 pt-2 border-t border-gray-800">
-            <div className="space-y-2 flex-1 min-w-0">
-              <ControlField
-                label="Max Height"
-                tooltip="Cut pattern above this height (mm)"
-              >
-                <DebouncedInput
-                  type="number"
-                  value={settings.patternMaxHeight ?? ""}
-                  onChange={(val) =>
-                    updateSettings({
-                      patternMaxHeight: val === "" ? undefined : Number(val),
-                    })
-                  }
-                  placeholder="Auto"
-                  min={0}
-                  step={0.1}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
-                />
-              </ControlField>
-            </div>
-          </div>
-
-          {isTiled && (
-            <div className="flex-1 min-w-0 pt-2 border-t border-gray-800">
-              <ControlField
-                label="Spacing"
-                tooltip="Distance between tiled patterns"
-              >
-                <DebouncedInput
-                  type="number"
-                  value={tileSpacing}
-                  onChange={(val) =>
-                    updateSettings({ tileSpacing: Number(val) })
-                  }
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
-                />
-              </ControlField>
-            </div>
-          )}
-
-          {isTiled && (
-            <>
-              <div className="flex gap-4">
-                <div className="flex-1 min-w-0">
-                  <ControlField label="Distribution">
-                    <div className="relative">
-                      <select
-                        value={tilingDistribution}
-                        onChange={(e) =>
-                          updateSettings({
-                            tilingDistribution: e.target.value as any,
-                          })
-                        }
-                        className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-3 pr-10 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none appearance-none truncate"
+                      updateSettings(updates);
+                    }}
+                    action={descriptor.key === 'patternScale' && patternShapes && patternShapes.length > 0 && (
+                      <button
+                        onClick={() => {
+                          const newScale = calculateAutoPatternScale(patternShapes, patternType, isTiled, baseSize, patternMargin);
+                          if (newScale !== null) updateSettings({ patternScale: newScale });
+                        }}
+                        className="text-gray-400 hover:text-purple-400 transition-colors"
+                        title={isTiled ? "Auto Scale Tile Pattern" : "Auto Scale to Fit"}
                       >
-                        <option value="grid">Grid</option>
-                        <option value="offset">Offset</option>
-                        <option value="hex">Hex</option>
-                        <option value="radial">Radial</option>
-                        <option value="wave">Wave</option>
-                        <option value="zigzag">Zigzag</option>
-                        <option value="warped-grid">Warped Grid</option>
-                        <option value="random">Random</option>
-                      </select>
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                        <ChevronDown size={16} />
-                      </div>
-                    </div>
-                  </ControlField>
+                        <Maximize size={14} />
+                      </button>
+                    )}
+                  />
                 </div>
-
-                {(tilingDistribution === "wave" ||
-                  tilingDistribution === "zigzag") && (
-                  <div className="flex-1 min-w-0">
-                    <ControlField label="Direction">
-                      <div className="relative">
-                        <select
-                          value={tilingDirection}
-                          onChange={(e) =>
-                            updateSettings({
-                              tilingDirection: e.target.value as any,
-                            })
-                          }
-                          className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-3 pr-10 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none appearance-none truncate"
-                        >
-                          <option value="horizontal">Horizontal</option>
-                          <option value="vertical">Vertical</option>
-                        </select>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                          <ChevronDown size={16} />
-                        </div>
-                      </div>
-                    </ControlField>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-1 min-w-0">
-                  <ControlField label="Orientation">
-                    <div className="relative">
-                      <select
-                        value={tilingOrientation}
-                        onChange={(e) =>
-                          updateSettings({
-                            tilingOrientation: e.target.value as any,
-                          })
-                        }
-                        className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-3 pr-10 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none appearance-none truncate"
-                      >
-                        <option value="none">None</option>
-                        <option value="alternate">Alternate</option>
-                        <option value="aligned">Aligned</option>
-                        <option value="random">Random</option>
-                      </select>
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                        <ChevronDown size={16} />
-                      </div>
-                    </div>
-                  </ControlField>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <ControlField
-                    label="Clamp"
-                    tooltip="Snap rotation increments"
-                  >
-                    <DebouncedInput
-                      type="number"
-                      value={rotationClamp ?? ""}
-                      onChange={(val) =>
-                        updateSettings({
-                          rotationClamp: val === "" ? undefined : Number(val),
-                        })
-                      }
-                      placeholder="None"
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
-                    />
-                  </ControlField>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Margin & Clip Toggles */}
-          {/* Margin */}
-          <div className="pt-2 border-t border-gray-800">
-            <ControlField label="Margin" tooltip="Safety margin from edge">
-              <DebouncedInput
-                type="number"
-                value={patternMargin}
-                onChange={(val) =>
-                  updateSettings({ patternMargin: Number(val) })
-                }
-                step="0.5"
-                min="0"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
-              />
-            </ControlField>
-          </div>
-
-          {/* Toggles Row */}
-          <div className="flex gap-4 pt-2">
-            <div className="flex-1 min-w-0">
-              <ControlField
-                label="Clip to Edge"
-                tooltip="Trim patterns that cross the outline boundary"
-              >
-                <ToggleButton
-                  label={clipToOutline ? "Enabled" : "Disabled"}
-                  isToggled={!!clipToOutline}
-                  onToggle={() =>
-                    updateSettings({ clipToOutline: !clipToOutline })
-                  }
-                  icon={<Scissors size={16} />}
-                />
-              </ControlField>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <ControlField
-                label="Holes"
-                tooltip="Interaction with holes"
-              >
-                  <div className="relative">
-                    <select
-                      value={holeMode || 'default'}
-                      onChange={(e) =>
-                        updateSettings({
-                          holeMode: e.target.value as any,
-                        })
-                      }
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-3 pr-10 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none appearance-none truncate"
-                    >
-                      <option value="default">Default</option>
-                      <option value="margin">Margin</option>
-                      <option value="avoid">Avoid</option>
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                      <ChevronDown size={16} />
-                    </div>
-                  </div>
-              </ControlField>
-            </div>
-          </div>
-
-          <div className="space-y-2 pt-2 border-t border-gray-800">
-            <label className="text-sm font-medium text-gray-300">Color</label>
-            <div className="grid grid-cols-7 gap-y-2 p-1.5 bg-gray-800 rounded-lg border border-gray-700 w-full justify-items-center">
-              {Object.entries(COLORS).map(([name, value]) => (
-                <button
-                  key={value}
-                  onClick={() => updateSettings({ patternColor: value })}
-                  className={`w-6 h-6 rounded-md transition-all hover:scale-110 active:scale-95 ${
-                    patternColor === value
-                      ? "ring-2 ring-white"
-                      : "hover:ring-1 hover:ring-white/50"
-                  }`}
-                  style={{ backgroundColor: value }}
-                  title={name}
-                />
               ))}
             </div>
-          </div>
+          ))}
+
+          <SwatchGrid value={patternColor} onChange={value => updateSettings({ patternColor: value })} className="pt-2 border-t border-gray-800" />
         </>
       )}
     </section>

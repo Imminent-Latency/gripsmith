@@ -1,6 +1,6 @@
 import React from 'react';
 import { BaseSettings } from '../../types/schemas';
-import { COLORS } from '../../constants/colors';
+import SwatchGrid from '../ui/SwatchGrid';
 import { FlipHorizontal, BookOpen } from 'lucide-react';
 import ShapeUploader from '../ShapeUploader';
 import ControlField from '../ui/ControlField';
@@ -140,20 +140,7 @@ const BaseControls: React.FC<BaseControlsProps> = ({
           </div>
       )}
 
-      <div className="space-y-2">
-         <label className="text-sm font-medium text-gray-300">Color</label>
-         <div className="grid grid-cols-7 gap-y-2 p-1.5 bg-gray-800 rounded-lg border border-gray-700 w-full justify-items-center">
-            {Object.entries(COLORS).map(([name, value]) => (
-              <button
-                key={value}
-                onClick={() => updateSettings({ color: value })}
-                className={`w-6 h-6 rounded-md transition-all hover:scale-110 active:scale-95 ${color === value ? 'ring-2 ring-white' : 'hover:ring-1 hover:ring-white/50'}`}
-                style={{ backgroundColor: value }}
-                title={name}
-              />
-            ))}
-         </div>
-      </div>
+      <SwatchGrid value={color} onChange={value => updateSettings({ color: value })} />
     </section>
   );
 };

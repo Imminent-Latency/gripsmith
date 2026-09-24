@@ -4,6 +4,7 @@ import STLThumbnail from './STLThumbnail';
 import DXFThumbnail from './DXFThumbnail';
 import Button from './ui/Button';
 import ThumbnailGenerator from './ThumbnailGenerator';
+import { useModalDismiss } from '../hooks/useModalDismiss';
 
 export interface PatternPreset {
     name: string;
@@ -70,9 +71,13 @@ interface PatternLibraryModalProps {
     onClose: () => void;
     onSelect: (preset: PatternPreset) => void;
     category?: 'patterns' | 'inlays' | 'outlines';
+    selectedFile?: string;
 }
 
-const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClose, onSelect, category = 'patterns' }) => {
+const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClose, onSelect, category = 'patterns', selectedFile }) => {
+    const modalRef = React.useRef<HTMLDivElement>(null);
+    const titleId = React.useId();
+    useModalDismiss(modalRef, onClose, isOpen);
     // State for interactive mode (single item at a time)
     const [interactiveFile, setInteractiveFile] = useState<string | null>(null);
     
@@ -132,7 +137,7 @@ const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClo
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         // If moved more than 5px, treat as drag/pan and ignore select
-        if (isInteractive && distance > 5) {
+        if (isInteractive && e.detail !== 0 && distance > 5) {
             return;
         }
         
@@ -141,12 +146,13 @@ const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClo
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200">
+            <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between p-4 border-b border-gray-800">
                     <div className="flex items-center gap-4">
-                        <h3 className="text-lg font-semibold text-white">{title}</h3>
+                        <h3 id={titleId} className="text-lg font-semibold text-white">{title}</h3>
                     </div>
                     <Button 
+                        aria-label="Close library"
                         onClick={onClose}
                         variant="ghost"
                         size="icon"
@@ -160,8 +166,6 @@ const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClo
                     {filteredPresets.map((preset) => (
                         <div
                             key={preset.file}
-                            onPointerDown={handlePointerDown}
-                            onClick={(e) => handlePatternClick(preset, e)}
                             className="relative bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-purple-500/50 rounded-lg p-4 flex flex-col items-center gap-3 transition-all group cursor-pointer"
                         >
                             {/* 3D Interactive Toggle (Only for patterns) */}
@@ -180,6 +184,7 @@ const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClo
                                         </a>
                                     )}
                                     <button
+                                        type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setInteractiveFile(interactiveFile === preset.file ? null : preset.file);
@@ -209,6 +214,14 @@ const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClo
                                 </a>
                             )}
 
+                            <button
+                                type="button"
+                                aria-label={preset.name}
+                                aria-pressed={selectedFile === undefined ? undefined : selectedFile === preset.file}
+                                onPointerDown={handlePointerDown}
+                                onClick={(e) => handlePatternClick(preset, e)}
+                                className="w-full flex flex-col items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                            >
                             <div className="w-full aspect-square bg-gray-900 rounded-md flex items-center justify-center p-4">
                                 {preset.type === 'stl' ? (
                                     <STLThumbnail 
@@ -235,6 +248,7 @@ const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClo
                                 )}
                             </div>
                             <span className="text-sm font-medium text-gray-300 group-hover:text-white">{preset.name}</span>
+                            </button>
                         </div>
                     ))}
                 </div>

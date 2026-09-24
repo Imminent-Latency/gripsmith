@@ -7,9 +7,10 @@ interface TooltipProps {
 }
 
 const Tooltip: React.FC<TooltipProps> = ({ content }) => {
+  const tooltipId = React.useId();
   const [isVisible, setIsVisible] = useState(false);
   const [coords, setCoords] = useState({ left: 0, top: 0 });
-  const triggerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const updatePosition = () => {
     if (triggerRef.current) {
@@ -35,14 +36,16 @@ const Tooltip: React.FC<TooltipProps> = ({ content }) => {
 
   return (
     <>
-      <div 
+      <button type="button" aria-label="More information" aria-describedby={isVisible ? tooltipId : undefined}
         ref={triggerRef}
         className="relative inline-flex items-center ml-2"
         onMouseEnter={() => {
             updatePosition();
             setIsVisible(true);
         }}
-        onMouseLeave={() => setIsVisible(false)}
+        onFocus={() => { updatePosition(); setIsVisible(true); }}
+        onBlur={() => setIsVisible(false)}
+        onMouseLeave={() => { if (document.activeElement !== triggerRef.current) setIsVisible(false); }}
         onClick={(e) => {
             e.stopPropagation();
             updatePosition();
@@ -53,10 +56,10 @@ const Tooltip: React.FC<TooltipProps> = ({ content }) => {
           size={14} 
           className="text-gray-500 hover:text-purple-400 cursor-help transition-colors" 
         />
-      </div>
+      </button>
       
       {isVisible && createPortal(
-        <div 
+        <div id={tooltipId} role="tooltip"
             className="fixed z-[9999] w-48 p-2 bg-gray-900 border border-gray-700 rounded-lg shadow-xl text-xs text-gray-300 pointer-events-none animate-in fade-in zoom-in-95 duration-200"
             style={{
                 left: coords.left,

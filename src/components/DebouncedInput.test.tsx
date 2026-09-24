@@ -45,4 +45,20 @@ describe('DebouncedInput Component', () => {
     rerender(<DebouncedInput value="second" onChange={() => {}} />);
     expect(input.value).toBe('second');
   });
+
+  it('re-syncs an unchanged numeric prop when revision increments', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<DebouncedInput type="number" value={0.5} onChange={onChange} revision={0} />);
+    const input = screen.getByRole('spinbutton') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '9' } });
+    act(() => { vi.advanceTimersByTime(150); });
+    expect(onChange).toHaveBeenCalledWith('9');
+    expect(input.value).toBe('9');
+
+    rerender(<DebouncedInput type="number" value={0.5} onChange={onChange} revision={1} />);
+    expect(input.value).toBe('0.5');
+    expect(input.hasAttribute('revision')).toBe(false);
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
 });
