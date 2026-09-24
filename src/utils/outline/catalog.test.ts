@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PRESETS } from '../../constants/presets';
 import { BaseSettingsSchema, ProjectSchemaV1 } from '../../types/schemas';
@@ -97,5 +97,33 @@ describe('outline identity persistence', () => {
         expect(result.data.base.outlineRef).toEqual(outlineRef);
         expect(result.importedVersion).toBe(1);
         expect(result.importedAssets?.baseOutline?.content).toBe('SECTION\nHEADER');
+    });
+});
+
+
+describe('bundled asset provenance', () => {
+    it('records an explicit provenance decision for every outline', () => {
+        for (const preset of PRESETS.filter(preset => preset.category === 'outlines')) {
+            expect(['verified', 'unverified']).toContain(preset.provenance);
+        }
+    });
+
+    it('requires attribution and a specific source for any verified preset', () => {
+        for (const preset of PRESETS.filter(preset => preset.provenance === 'verified')) {
+            expect(preset.credit?.trim()).toBeTruthy();
+            expect(preset.license?.trim()).toBeTruthy();
+            expect(preset.infoUrl?.trim()).toBeTruthy();
+            expect(preset.infoUrl).not.toBe('https://www.printables.com/model/968803');
+        }
+    });
+
+    it('lists every bundled filename in NOTICE exactly once, including orphans', () => {
+        const notice = readFileSync('NOTICE', 'utf8');
+        expect(notice).toContain('Bundled outlines: UNVERIFIED provenance.');
+        const files = ['outlines', 'inlays', 'patterns'].flatMap(category =>
+            readdirSync(`public/${category}`).map(file => `public/${category}/${file}`)).sort();
+        const listed = notice.split('\n').filter(line => line.startsWith('public/')).map(line => line.split(' | ')[0]).sort();
+        expect(listed).toEqual(files);
+        for (const file of files) expect(listed.filter(entry => entry === file)).toHaveLength(1);
     });
 });

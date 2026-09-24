@@ -1,3 +1,5 @@
+export type PresetProvenance = 'verified' | 'unverified';
+
 export interface PatternPreset {
     id: string;
     name: string;
@@ -6,6 +8,9 @@ export interface PatternPreset {
     category: 'patterns' | 'inlays' | 'outlines';
     keepOriginalColors?: boolean;
     infoUrl?: string;
+    credit?: string;
+    license?: string;
+    provenance?: PresetProvenance;
 }
 
 export const PRESETS: PatternPreset[] = [
@@ -40,21 +45,21 @@ export const PRESETS: PatternPreset[] = [
     { id: 'inlay/matixbuilt', name: 'MatixBuilt', file: 'matixbuilt.svg', type: 'svg', category: 'inlays', keepOriginalColors: true },
 
     // Outlines
-    { id: 'outline/xrstock', name: 'XR Stock', file: 'xrstock.dxf', type: 'dxf', category: 'outlines', infoUrl: 'https://www.printables.com/model/968803' },
-    { id: 'outline/xrcobraviper', name: 'XR Cobra/Viper', file: 'xrcobraviper.dxf', type: 'dxf', category: 'outlines', infoUrl: 'https://www.printables.com/model/968803' },
-    { id: 'outline/xrkushwide', name: 'XR Kush Wide', file: 'xrkushwide.dxf', type: 'dxf', category: 'outlines', infoUrl: 'https://www.printables.com/model/968803' },
-    { id: 'outline/xrmushiesv2', name: 'XR Mushies V2', file: 'xrmushiesv2.dxf', type: 'dxf', category: 'outlines', infoUrl: 'https://www.printables.com/model/968803' },
-    { id: 'outline/xrpubpad', name: 'XR PubPad', file: 'xrpubpad.dxf', type: 'dxf', category: 'outlines' },
-    { id: 'outline/xrstompies', name: 'XR Stompies', file: 'xrstompies.dxf', type: 'dxf', category: 'outlines' },
-    { id: 'outline/xrviperbitewide', name: 'XR Viperbite Wide', file: 'xrviperbitewide.dxf', type: 'dxf', category: 'outlines' },
-    { id: 'outline/floatwheeladv', name: 'Floatwheel ADV', file: 'floatwheeladv.dxf', type: 'dxf', category: 'outlines', infoUrl: 'https://www.printables.com/model/968803' },
-    { id: 'outline/floatwheelatom', name: 'Floatwheel Atom', file: 'floatwheelatom.dxf', type: 'dxf', category: 'outlines' },
-    { id: 'outline/gtstock', name: 'GT Stock', file: 'gtstock.dxf', type: 'dxf', category: 'outlines', infoUrl: 'https://www.printables.com/model/968803' },
-    { id: 'outline/gtkushwide', name: 'GT Kush Wide', file: 'gtkushwide.dxf', type: 'dxf', category: 'outlines', infoUrl: 'https://www.printables.com/model/968803' },
-    { id: 'outline/gtmushies', name: 'GT Mushies', file: 'gtmushies.dxf', type: 'dxf', category: 'outlines', infoUrl: 'https://www.printables.com/model/968803' },
-    { id: 'outline/gtfst', name: 'GT FST', file: 'gtfst.dxf', type: 'dxf', category: 'outlines' },
-    { id: 'outline/gtlowboyflared', name: 'GT Lowboy Flared', file: 'gtlowboyflared.dxf', type: 'dxf', category: 'outlines' },
-    { id: 'outline/pint', name: 'Pint', file: 'pint.dxf', type: 'dxf', category: 'outlines', infoUrl: 'https://www.printables.com/model/968803' },
-    { id: 'outline/pintmatix', name: 'Pint Matix', file: 'pintmatix.dxf', type: 'dxf', category: 'outlines' },
-    { id: 'outline/gosmilox7', name: 'Gosmilo X7', file: 'gosmilox7.dxf', type: 'dxf', category: 'outlines' }
+    { id: 'outline/xrstock', name: 'XR Stock', file: 'xrstock.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified', infoUrl: 'https://www.printables.com/model/968803' },
+    { id: 'outline/xrcobraviper', name: 'XR Cobra/Viper', file: 'xrcobraviper.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified', infoUrl: 'https://www.printables.com/model/968803' },
+    { id: 'outline/xrkushwide', name: 'XR Kush Wide', file: 'xrkushwide.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified', infoUrl: 'https://www.printables.com/model/968803' },
+    { id: 'outline/xrmushiesv2', name: 'XR Mushies V2', file: 'xrmushiesv2.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified', infoUrl: 'https://www.printables.com/model/968803' },
+    { id: 'outline/xrpubpad', name: 'XR PubPad', file: 'xrpubpad.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified' },
+    { id: 'outline/xrstompies', name: 'XR Stompies', file: 'xrstompies.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified' },
+    { id: 'outline/xrviperbitewide', name: 'XR Viperbite Wide', file: 'xrviperbitewide.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified' },
+    { id: 'outline/floatwheeladv', name: 'Floatwheel ADV', file: 'floatwheeladv.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified', infoUrl: 'https://www.printables.com/model/968803' },
+    { id: 'outline/floatwheelatom', name: 'Floatwheel Atom', file: 'floatwheelatom.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified' },
+    { id: 'outline/gtstock', name: 'GT Stock', file: 'gtstock.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified', infoUrl: 'https://www.printables.com/model/968803' },
+    { id: 'outline/gtkushwide', name: 'GT Kush Wide', file: 'gtkushwide.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified', infoUrl: 'https://www.printables.com/model/968803' },
+    { id: 'outline/gtmushies', name: 'GT Mushies', file: 'gtmushies.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified', infoUrl: 'https://www.printables.com/model/968803' },
+    { id: 'outline/gtfst', name: 'GT FST', file: 'gtfst.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified' },
+    { id: 'outline/gtlowboyflared', name: 'GT Lowboy Flared', file: 'gtlowboyflared.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified' },
+    { id: 'outline/pint', name: 'Pint', file: 'pint.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified', infoUrl: 'https://www.printables.com/model/968803' },
+    { id: 'outline/pintmatix', name: 'Pint Matix', file: 'pintmatix.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified' },
+    { id: 'outline/gosmilox7', name: 'Gosmilo X7', file: 'gosmilox7.dxf', type: 'dxf', category: 'outlines', provenance: 'unverified' }
 ];

@@ -140,7 +140,14 @@ const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClo
                                 </div>
                             )}
 
-                            {preset.infoUrl && category !== 'patterns' && (
+                            {category !== 'patterns' && (preset.provenance !== 'verified' ? (
+                                <span
+                                    className="absolute top-2 right-2 p-1.5 bg-gray-900/50 text-gray-500 rounded-md backdrop-blur-sm z-10"
+                                    title="Source not verified"
+                                >
+                                    ?
+                                </span>
+                            ) : preset.infoUrl && (
                                 <a
                                     href={preset.infoUrl}
                                     target="_blank"
@@ -151,7 +158,7 @@ const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClo
                                 >
                                     <ExternalLink size={14} />
                                 </a>
-                            )}
+                            ))}
 
                             <div className="w-full aspect-square bg-gray-900 rounded-md flex items-center justify-center p-4">
                                 {preset.type === 'stl' ? (

@@ -116,6 +116,7 @@ describe('outline cache', () => {
         await act(async () => rerender(createElement(PatternLibraryModal, props)));
         await waitFor(() => expect(container.querySelectorAll('svg[viewBox] path[transform]')).toHaveLength(17));
         expect(PRESETS.filter(preset => preset.category === 'outlines')).toHaveLength(17);
+        expect(container.querySelectorAll('[title="Source not verified"]')).toHaveLength(17);
         expect(fetch).toHaveBeenCalledTimes(17);
         expect(parse).toHaveBeenCalledTimes(17);
     });
