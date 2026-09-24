@@ -19,6 +19,8 @@ import { useAlert } from "../../context/AlertContext";
 import { STLLoader } from "three-stdlib";
 import { getShapesBounds } from "../../utils/patternUtils";
 import { parseShapeFile } from "../../utils/shapeLoader";
+import ParamField from "../params/ParamField";
+import { useParamContext } from "../../context/ParamContext";
 
 interface GeometryControlsProps {
   settings: GeometrySettings;
@@ -34,6 +36,7 @@ const GeometryControls: React.FC<GeometryControlsProps> = ({
   onPatternAssetChanged,
 }) => {
   const { showAlert } = useAlert();
+  const paramContext = useParamContext();
   const {
     patternShapes,
     patternType,
@@ -325,17 +328,16 @@ const GeometryControls: React.FC<GeometryControlsProps> = ({
             </div>
 
             <div className="space-y-2 flex-1 min-w-0">
-              <ControlField label="Rotate" tooltip="Base rotation in degrees">
-                <DebouncedInput
-                  type="number"
-                  value={baseRotation ?? 0}
-                  onChange={(val) =>
-                    updateSettings({ baseRotation: Number(val) })
-                  }
-                  step="15"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
-                />
-              </ControlField>
+              <ParamField
+                descriptor={{
+                  key: 'baseRotation', kind: 'slider', label: 'Rotate',
+                  tooltip: 'Base rotation in degrees', unit: 'deg',
+                  min: 0, max: 360, step: 15, regenerates: true,
+                }}
+                settings={{ ...settings, baseRotation: baseRotation ?? 0 }}
+                onChange={updateSettings}
+                ctx={paramContext}
+              />
             </div>
           </div>
 

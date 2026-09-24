@@ -5,6 +5,7 @@ import ControlField from '../ui/ControlField';
 import DebouncedInput from '../DebouncedInput';
 import ToggleButton from '../ui/ToggleButton';
 import SegmentedControl from '../ui/SegmentedControl';
+import Slider from '../ui/Slider';
 import type { ParamContextValue, ParamDescriptor } from '../../utils/params/types';
 import { clampToDescriptor, resolveDerivable } from '../../utils/params/resolve';
 
@@ -48,6 +49,19 @@ export default function ParamField<S>({ descriptor, settings, onChange, ctx, act
                                 if (next !== numeric) setRevision(current => current + 1);
                             }}
                             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
+                        />;
+                    case 'slider':
+                        return <Slider
+                            id={id} label={descriptor.label} aria-describedby={describedBy}
+                            value={Number(value ?? 0)} revision={revision} unit={descriptor.unit}
+                            min={descriptor.min === undefined ? undefined : resolveDerivable(descriptor.min, ctx)}
+                            max={descriptor.max === undefined ? undefined : resolveDerivable(descriptor.max, ctx)}
+                            step={descriptor.step === undefined ? undefined : resolveDerivable(descriptor.step, ctx)}
+                            onChange={numeric => {
+                                const next = descriptor.clamp ? clampToDescriptor(numeric, descriptor, ctx) : numeric;
+                                commit(next);
+                                if (next !== numeric) setRevision(current => current + 1);
+                            }}
                         />;
                     case 'select':
                         return <div className="relative">

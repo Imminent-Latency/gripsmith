@@ -30,6 +30,20 @@ describe('T2: ParamField kinds', () => {
         expect(onChange).toHaveBeenCalledWith({ patternScale: 0.3 });
     });
 
+    it('slider resolves bounds and commits rotation after 150 ms', () => {
+        const onChange = vi.fn();
+        render(<ParamField descriptor={{ key: 'baseRotation', kind: 'slider', label: 'Rotate', min: 0, max: () => 360, step: 15, unit: 'deg', regenerates: true }} settings={defaultGeometrySettings} ctx={ctx} onChange={onChange} />);
+        const slider = screen.getByLabelText('Rotate') as HTMLInputElement;
+        expect([slider.min, slider.max, slider.step]).toEqual(['0', '360', '15']);
+        fireEvent.change(slider, { target: { value: '90' } });
+        expect(slider.getAttribute('aria-valuetext')).toBe('90 deg');
+        act(() => { vi.advanceTimersByTime(149); });
+        expect(onChange).not.toHaveBeenCalled();
+        act(() => { vi.advanceTimersByTime(1); });
+        expect(onChange).toHaveBeenCalledWith({ baseRotation: 90 });
+        expect(onChange).toHaveBeenCalledTimes(1);
+    });
+
     it('select commits synchronously', () => {
         const onChange = vi.fn();
         render(<ParamField descriptor={{ key: 'holeMode', kind: 'select', label: 'Holes', regenerates: true, options: [{ value: 'default', label: 'Default' }, { value: 'avoid', label: 'Avoid' }] }} settings={defaultGeometrySettings} ctx={ctx} onChange={onChange} />);

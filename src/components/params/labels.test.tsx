@@ -64,12 +64,12 @@ const exclusions = {
     },
     'GeometryControls place': {
         div: ['Grip Geometry', 'Holes'], // ShapeUploader x1, GeometryControls x1
-        DebouncedInput: ['Scale X/Y', 'Scale Z', 'Rotate', 'Max Height', 'Margin'], // GeometryControls x5
+        DebouncedInput: ['Scale X/Y', 'Scale Z', 'Max Height', 'Margin'], // GeometryControls x4
         ToggleButton: ['Clip to Edge'], // GeometryControls x1 (:511)
     },
     'GeometryControls wave': {
         div: ['Grip Geometry', 'Distribution', 'Direction', 'Orientation', 'Holes'], // ShapeUploader x1, GeometryControls x4
-        DebouncedInput: ['Scale X/Y', 'Scale Z', 'Rotate', 'Max Height', 'Spacing', 'Clamp', 'Margin'], // GeometryControls x7
+        DebouncedInput: ['Scale X/Y', 'Scale Z', 'Max Height', 'Spacing', 'Clamp', 'Margin'], // GeometryControls x6
         ToggleButton: ['Clip to Edge'], // GeometryControls x1 (:511)
     },
     'InlayControls single': {
