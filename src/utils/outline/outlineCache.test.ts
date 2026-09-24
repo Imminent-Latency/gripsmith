@@ -121,3 +121,46 @@ describe('outline cache', () => {
         expect(parse).toHaveBeenCalledTimes(17);
     });
 });
+
+
+describe('outline provenance markers', () => {
+    it('keeps the info link beside the marker for an unverified outline', async () => {
+        stubOutline();
+        const preset = PRESETS.find(preset => preset.category === 'outlines' && preset.infoUrl)!;
+        expect(preset.provenance).toBe('unverified');
+        vi.spyOn(PRESETS, 'filter').mockReturnValue([preset]);
+        const { container, getByTitle } = render(createElement(PatternLibraryModal, {
+            isOpen: true, onClose: vi.fn(), onSelect: vi.fn(), category: 'outlines',
+        }));
+        await waitFor(() => expect(container.querySelector('path[transform]')).not.toBeNull());
+        const link = getByTitle('View Info');
+        const marker = getByTitle('Source not verified');
+        expect(link.tagName).toBe('A');
+        expect(link.getAttribute('href')).toBe(preset.infoUrl);
+        expect(marker.parentElement).toBe(link.parentElement);
+        expect(marker.classList.contains('right-10')).toBe(true);
+    });
+
+    it('renders only the info link for a verified outline', async () => {
+        stubOutline();
+        const preset = {
+            ...PRESETS.find(preset => preset.category === 'outlines' && preset.infoUrl)!,
+            provenance: 'verified' as const,
+        };
+        vi.spyOn(PRESETS, 'filter').mockReturnValue([preset]);
+        const { container, getByTitle, queryByTitle } = render(createElement(PatternLibraryModal, {
+            isOpen: true, onClose: vi.fn(), onSelect: vi.fn(), category: 'outlines',
+        }));
+        await waitFor(() => expect(container.querySelector('path[transform]')).not.toBeNull());
+        expect(getByTitle('View Info').getAttribute('href')).toBe(preset.infoUrl);
+        expect(queryByTitle('Source not verified')).toBeNull();
+    });
+
+    it('leaves all inlay rows without provenance markers', () => {
+        const { container, queryByTitle } = render(createElement(PatternLibraryModal, {
+            isOpen: true, onClose: vi.fn(), onSelect: vi.fn(), category: 'inlays',
+        }));
+        expect(container.querySelectorAll('img')).toHaveLength(12);
+        expect(queryByTitle('Source not verified')).toBeNull();
+    });
+});
