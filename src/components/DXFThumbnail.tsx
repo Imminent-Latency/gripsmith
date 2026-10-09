@@ -3,12 +3,13 @@ import { loadOutline } from '../utils/outline/outlineCache';
 
 interface DXFThumbnailProps {
     url: string;
+    type?: 'dxf' | 'svg';
     alt: string;
     className?: string;
     strokeColor?: string;
 }
 
-const DXFThumbnail: React.FC<DXFThumbnailProps> = ({ url, alt, className, strokeColor = '#22c55e' }) => {
+const DXFThumbnail: React.FC<DXFThumbnailProps> = ({ url, type = 'dxf', alt, className, strokeColor = '#22c55e' }) => {
     const [pathData, setPathData] = useState<string | null>(null);
     const [viewBox, setViewBox] = useState<string>("0 0 100 100");
     const [error, setError] = useState<boolean>(false);
@@ -20,7 +21,7 @@ const DXFThumbnail: React.FC<DXFThumbnailProps> = ({ url, alt, className, stroke
         const loadDxf = async () => {
             try {
                 setLoading(true);
-                const outline = await loadOutline(url);
+                const outline = await loadOutline(url, type);
                 if (!mounted) return;
                 setViewBox(outline.viewBox);
                 setPathData(outline.pathData);
@@ -37,7 +38,7 @@ const DXFThumbnail: React.FC<DXFThumbnailProps> = ({ url, alt, className, stroke
         return () => {
             mounted = false;
         };
-    }, [url]);
+    }, [url, type]);
 
     if (error) {
         return (

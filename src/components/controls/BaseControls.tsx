@@ -75,7 +75,7 @@ const BaseControls: React.FC<BaseControlsProps> = ({
                 setShowLibrary(false);
                 try {
                     if (preset.type === 'dxf' || preset.type === 'svg') {
-                        const outline = await loadOutline(assetUrl(preset.category, preset.file));
+                        const outline = await loadOutline(assetUrl(preset.category, preset.file), preset.type);
                         handleOutlineLoaded(outline.shapes, preset.name, preset.type, outline.text, { kind: 'preset', presetId: preset.id, name: preset.name });
                     }
                 } catch (error) {

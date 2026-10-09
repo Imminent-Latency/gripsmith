@@ -4,6 +4,7 @@ import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { Shape } from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as dxfUtils from '../dxfUtils';
+import * as shapeLoader from '../shapeLoader';
 import { loadOutline, clearOutlineCache } from './outlineCache';
 import { PRESETS } from '../../constants/presets';
 import PatternLibraryModal from '../../components/PatternLibraryModal';
@@ -32,10 +33,66 @@ const stubOutline = () => {
     const parse = vi.spyOn(dxfUtils, 'parseDxfToShapes').mockReturnValue([shape]);
     const fetch = vi.fn().mockResolvedValue(response());
     vi.stubGlobal('fetch', fetch);
-    return { parse, fetch };
+    return { parse, fetch, shape };
 };
 
 describe('outline cache', () => {
+    it('shares default and explicit DXF loads but separates a different declared format at the same URL', async () => {
+        const { fetch, shape } = stubOutline();
+        const parse = vi.spyOn(shapeLoader, 'parseShapeFile').mockReturnValue({ success: true, shapes: [shape] });
+        const dxf = loadOutline('/outline');
+        expect(loadOutline('/outline', 'dxf')).toBe(dxf);
+        const svg = loadOutline('/outline', 'svg');
+        expect(loadOutline('/outline', 'svg')).toBe(svg);
+        expect(svg).not.toBe(dxf);
+        const [dxfResult, svgResult] = await Promise.all([dxf, svg]);
+        expect(dxfResult).not.toBe(svgResult);
+        expect(await loadOutline('/outline', 'svg')).toBe(svgResult);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(parse.mock.calls.map(call => call[1])).toEqual(['dxf', 'svg']);
+    });
+
+    it('rejects a zero-shape SVG and retries with real SVG geometry', async () => {
+        const fetch = vi.fn()
+            .mockResolvedValueOnce({ ok: true, text: async () => '<svg xmlns="http://www.w3.org/2000/svg"/>' })
+            .mockResolvedValue({ ok: true, text: async () => '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="20"/></svg>' });
+        vi.stubGlobal('fetch', fetch);
+        const parse = vi.spyOn(shapeLoader, 'parseShapeFile');
+        const first = loadOutline('/outline.svg', 'svg');
+        expect(loadOutline('/outline.svg', 'svg')).toBe(first);
+        await expect(first).rejects.toThrow('SVG parsed to zero shapes');
+        const result = await loadOutline('/outline.svg', 'svg');
+        expect(result.shapes).toHaveLength(1);
+        expect(result.shapes[0]).toBeInstanceOf(Shape);
+        expect(await loadOutline('/outline.svg', 'svg')).toBe(result);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(parse.mock.calls.map(call => call[1])).toEqual(['svg', 'svg']);
+    });
+
+    it.each(['dxf', 'svg'] as const)('evicts a failed %s load without evicting the other format', async type => {
+        const { fetch, shape } = stubOutline();
+        vi.spyOn(shapeLoader, 'parseShapeFile').mockReturnValue({ success: true, shapes: [shape] });
+        const otherType = type === 'dxf' ? 'svg' : 'dxf';
+        const other = await loadOutline('/outline', otherType);
+        fetch.mockRejectedValueOnce(new Error('offline'));
+        const first = loadOutline('/outline', type);
+        const second = loadOutline('/outline', type);
+        expect(second).toBe(first);
+        expect((await Promise.allSettled([first, second])).map(result => result.status))
+            .toEqual(['rejected', 'rejected']);
+        expect(await loadOutline('/outline', otherType)).toBe(other);
+        await loadOutline('/outline', type);
+        expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('forwards an explicit format from the thumbnail interface', async () => {
+        const { shape } = stubOutline();
+        const parse = vi.spyOn(shapeLoader, 'parseShapeFile').mockReturnValue({ success: true, shapes: [shape] });
+        const { container } = render(createElement(DXFThumbnail, { url: '/outline', alt: 'SVG outline', type: 'svg' }));
+        await waitFor(() => expect(container.querySelector('path[transform]')).not.toBeNull());
+        expect(parse).toHaveBeenCalledWith(text, 'svg');
+    });
+
     it('shares sequential loads, including source bytes and viewBox coordinates', async () => {
         const { fetch, parse } = stubOutline();
         const first = await loadOutline('/outlines/pint.dxf');
