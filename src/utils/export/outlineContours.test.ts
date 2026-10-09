@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { FLAT_TOLERANCE_MM, outlineToCutPaths } from './outlineContours';
 import { hasSelfIntersection } from './cutPaths';
+import { writeCutSvg } from './svgWriter';
+import { writeCutDxf } from './dxfWriter';
 
 const identity = { mirror: false, rotationDeg: 0 };
 const shapeFrom = (xy: number[][]) => new THREE.Shape(xy.map(([x, y]) => new THREE.Vector2(x, y)));
@@ -56,15 +58,61 @@ describe('outline contours', () => {
   });
 
   it('reports dropped degenerate outer and hole rings', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    try {
-      const shape = shapeFrom([[0, 0], [10, 0], [10, 10], [0, 10]]);
-      shape.holes = [new THREE.Path([new THREE.Vector2(2, 2), new THREE.Vector2(3, 3)])];
-      const result = outlineToCutPaths([shape, shapeFrom([[0, 0], [1, 1]])], identity)!;
-      expect(result.regions).toHaveLength(1);
-      expect(result.regions[0].shape.holes).toHaveLength(0);
-      expect(warn).toHaveBeenCalledTimes(2);
-    } finally { warn.mockRestore(); }
+    const report = vi.fn();
+    const shape = shapeFrom([[0, 0], [10, 0], [10, 10], [0, 10]]);
+    shape.holes = [
+      new THREE.Path([new THREE.Vector2(2, 2), new THREE.Vector2(3, 3)]),
+      new THREE.Path([new THREE.Vector2(2, 2), new THREE.Vector2(5, 2), new THREE.Vector2(2, 5)]),
+    ];
+    const shapes = [shape, shapeFrom([[0, 0], [1, 1]])];
+    const before = shapes.map(raw => raw.toJSON());
+    const result = outlineToCutPaths(shapes, identity, report)!;
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith({ droppedOuterRings: 1, droppedHoleRings: 1 });
+    const expected = {
+      regions: [{ layer: 'OUTLINE' as const, shape: { points: [0, 0, 10, 0, 10, 10, 0, 10], holes: [[2, 5, 5, 2, 2, 2]] } }],
+      bounds: { minX: 0, minY: 0, maxX: 10, maxY: 10 },
+    };
+    expect(result).toEqual(expected);
+    expect(outlineToCutPaths(shapes, identity)).toEqual(expected);
+    expect(writeCutSvg(result)).toBe(writeCutSvg(expected));
+    expect(writeCutDxf(result)).toBe(writeCutDxf(expected));
+    expect(shapes.map(raw => raw.toJSON())).toEqual(before);
+  });
+
+  it('reports every dropped ring when a loaded outline has no exportable regions', () => {
+    const report = vi.fn();
+    const shape = shapeFrom([[0, 0], [1, 1]]);
+    shape.holes = [new THREE.Path(), new THREE.Path([new THREE.Vector2(2, 2), new THREE.Vector2(3, 3)])];
+    const result = outlineToCutPaths([new THREE.Shape(), shape], identity, report)!;
+    expect(result).toEqual({ regions: [], bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 } });
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith({ droppedOuterRings: 2, droppedHoleRings: 2 });
+  });
+
+  it('does not report drops for absent or valid outlines and preserves valid writer bytes', () => {
+    const report = vi.fn();
+    for (const absent of [null, undefined, []]) expect(outlineToCutPaths(absent, identity, report)).toBeNull();
+    const shapes = [shapeFrom([[0, 10], [20, 10], [20, 30], [0, 30]])];
+    const legacy = outlineToCutPaths(shapes, identity)!;
+    const result = outlineToCutPaths(shapes, identity, report)!;
+    expect(result).toEqual({
+      regions: [{ layer: 'OUTLINE', shape: { points: [0, 10, 20, 10, 20, 30, 0, 30], holes: [] } }],
+      bounds: { minX: 0, minY: 10, maxX: 20, maxY: 30 },
+    });
+    expect(writeCutSvg(result)).toBe(writeCutSvg(legacy));
+    expect(writeCutDxf(result)).toBe(writeCutDxf(legacy));
+    expect(report).not.toHaveBeenCalled();
+  });
+
+  it('retains a valid hole as an outline region when its degenerate outer is dropped', () => {
+    const report = vi.fn();
+    const shape = shapeFrom([[0, 0], [1, 1]]);
+    shape.holes = [new THREE.Path([new THREE.Vector2(2, 2), new THREE.Vector2(5, 2), new THREE.Vector2(2, 5)])];
+    const result = outlineToCutPaths([shape], identity, report)!;
+    expect(result.regions).toEqual([{ layer: 'OUTLINE', shape: { points: [2, 2, 5, 2, 2, 5], holes: [] } }]);
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith({ droppedOuterRings: 1, droppedHoleRings: 0 });
   });
 
   it('promotes a detached hole to an OUTLINE region', () => {

@@ -5,6 +5,9 @@ import DxfParser from 'dxf-parser';
 import type { IPolylineEntity } from 'dxf-parser/dist/entities/polyline';
 import OutputPanel from './OutputPanel';
 import { defaultBaseSettings } from '../utils/schemaDefaults';
+import { outlineToCutPaths } from '../utils/export/outlineContours';
+import { writeCutSvg } from '../utils/export/svgWriter';
+import { writeCutDxf } from '../utils/export/dxfWriter';
 
 const { showAlert } = vi.hoisted(() => ({ showAlert: vi.fn() }));
 vi.mock('../context/AlertContext', () => ({ useAlert: () => ({ showAlert }) }));
@@ -44,6 +47,7 @@ describe.each(['svg', 'dxf'] as const)('OutputPanel %s cut export', format => {
     const { createObjectURL, link } = stubDownload();
     fireEvent.click(button);
     expect(showAlert).toHaveBeenCalledTimes(1);
+    expect(showAlert).toHaveBeenCalledWith(expect.objectContaining({ message: 'Load a pad outline before exporting cut paths.' }));
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(link.click).not.toHaveBeenCalled();
   });
@@ -65,6 +69,71 @@ describe.each(['svg', 'dxf'] as const)('OutputPanel %s cut export', format => {
     expect(link.href).toBe('blob:mock-url');
     expect(link.click).toHaveBeenCalledTimes(1);
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+  });
+
+  it.each(['empty shape', 'degenerate outer and hole'])('refuses a loaded outline with no exportable regions: %s', kind => {
+    const outline = kind === 'empty shape' ? new THREE.Shape() : shapeFrom([[0, 0], [1, 1]]);
+    if (kind === 'degenerate outer and hole') outline.holes = [new THREE.Path([new THREE.Vector2(2, 2), new THREE.Vector2(3, 3)])];
+    render(<OutputPanel meshRef={{ current: null }} cutoutShapes={[outline]} />);
+    const button = screen.getByRole('button', { name: buttonName });
+    const { createObjectURL, revokeObjectURL, link } = stubDownload();
+    fireEvent.click(button);
+    expect(showAlert).toHaveBeenCalledTimes(1);
+    expect(showAlert).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'warning',
+      message: expect.stringContaining('The loaded outline has no exportable regions.'),
+    }));
+    const message = showAlert.mock.calls[0][0].message;
+    expect(message).toContain('Dropped 1 outline ring');
+    expect(message).toContain(`${kind === 'empty shape' ? 0 : 1} hole ring`);
+    expect(message).toContain('fewer than 3 vertices');
+    expect(message).toContain('No file was downloaded.');
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+    expect(link.click).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('alerts for mixed valid and dropped rings and downloads the same valid bytes (intersections: %s)', async intersecting => {
+    const valid = intersecting ? crossed() : convex();
+    if (!intersecting) valid.holes = [new THREE.Path([new THREE.Vector2(2, 12), new THREE.Vector2(8, 12), new THREE.Vector2(2, 18)])];
+    const expected = outlineToCutPaths([valid], { mirror: true, rotationDeg: 37 })!;
+    const expectedText = format === 'svg' ? writeCutSvg(expected) : writeCutDxf(expected);
+    const mixed = valid.clone();
+    mixed.holes.push(new THREE.Path([new THREE.Vector2(2, 12), new THREE.Vector2(3, 13)]));
+    render(<OutputPanel meshRef={{ current: null }} cutoutShapes={[mixed, shapeFrom([[0, 0], [1, 1]])]} baseOutlineMirror baseOutlineRotation={37} />);
+    const button = screen.getByRole('button', { name: buttonName });
+    const { createObjectURL, revokeObjectURL, link } = stubDownload();
+    fireEvent.click(button);
+    expect(showAlert).toHaveBeenCalledTimes(1);
+    expect(showAlert).toHaveBeenCalledWith(expect.objectContaining({ type: 'warning' }));
+    const message = showAlert.mock.calls[0][0].message;
+    expect(message).toContain('Dropped 1 outline ring');
+    expect(message).toContain('1 hole ring');
+    expect(message).toContain('fewer than 3 vertices');
+    expect(message.includes('self-intersecting')).toBe(intersecting);
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(link.download).toBe(`gripsmith-outline.${format}`);
+    expect(link.click).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+    const text = await new Promise<string>(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsText(createObjectURL.mock.calls[0][0] as Blob);
+    });
+    expect(text).toBe(expectedText);
+  });
+
+  it('warns and downloads a promoted valid hole even when its outer ring is dropped', () => {
+    const outline = shapeFrom([[0, 0], [1, 1]]);
+    outline.holes = [new THREE.Path([new THREE.Vector2(2, 2), new THREE.Vector2(5, 2), new THREE.Vector2(2, 5)])];
+    render(<OutputPanel meshRef={{ current: null }} cutoutShapes={[outline]} />);
+    const button = screen.getByRole('button', { name: buttonName });
+    const { createObjectURL, link } = stubDownload();
+    fireEvent.click(button);
+    expect(showAlert).toHaveBeenCalledTimes(1);
+    expect(showAlert).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('Dropped 1 outline ring') }));
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(link.click).toHaveBeenCalledTimes(1);
   });
 
   it('applies the passed mirror and rotation to the actual downloaded coordinates', async () => {

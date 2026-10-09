@@ -9,6 +9,12 @@ import type { CutPathSet, CutRegion } from './cutPaths';
 /** Chord sag budget for exported cut paths, in millimetres. */
 export const FLAT_TOLERANCE_MM = 0.05;
 
+/** Dropped rings after sampling and terminal-duplicate removal; no UI concerns. */
+export interface OutlineDropReport {
+  droppedOuterRings: number;
+  droppedHoleRings: number;
+}
+
 /** Bounding radius about the bounding-box midpoint; divisions clamped to [12, 512]. */
 function divisionsForTolerance(shape: THREE.Shape, tolMm: number): number {
   const points = [shape, ...shape.holes].flatMap(path => path.getPoints());
@@ -19,23 +25,28 @@ function divisionsForTolerance(shape: THREE.Shape, tolMm: number): number {
   return Math.min(512, Math.max(12, Math.ceil(Math.PI / Math.acos(1 - tolMm / radius))));
 }
 
-export function outlineToCutPaths(shapes: THREE.Shape[] | null | undefined, t: OutlineTransform): CutPathSet | null {
+export function outlineToCutPaths(shapes: THREE.Shape[] | null | undefined, t: OutlineTransform, reportDrops?: (report: OutlineDropReport) => void): CutPathSet | null {
   if (!shapes || shapes.length === 0) return null;
   const regions: CutRegion[] = [];
+  const dropped: OutlineDropReport = { droppedOuterRings: 0, droppedHoleRings: 0 };
   for (const raw of shapes) {
     const divisions = divisionsForTolerance(raw, FLAT_TOLERANCE_MM);
     // Sample live curves first; rebuilding below retains those samples as line segments.
-    const sampled = new THREE.Shape(transformOutlinePoints(raw.getPoints(divisions), t));
-    sampled.holes = raw.holes.map(hole => new THREE.Path(transformOutlinePoints(hole.getPoints(divisions), t)));
+    const outerPoints = transformOutlinePoints(raw.getPoints(divisions), t);
+    const sampled = new THREE.Shape(outerPoints.length ? outerPoints : undefined);
+    sampled.holes = raw.holes.map(hole => {
+      const holePoints = transformOutlinePoints(hole.getPoints(divisions), t);
+      return new THREE.Path(holePoints.length ? holePoints : undefined);
+    });
     const serialized = serializeShape(sampled);
     const points = dropTerminalDuplicate(serialized.points);
     const holes: number[][] = [];
     const outerIsDegenerate = isDegenerate(points);
-    if (outerIsDegenerate) console.warn('Cut paths: dropped an outline ring with fewer than 3 vertices.');
+    if (outerIsDegenerate) dropped.droppedOuterRings++;
     for (const rawHole of serialized.holes) {
       const hole = dropTerminalDuplicate(rawHole);
       if (isDegenerate(hole)) {
-        console.warn('Cut paths: dropped a hole ring with fewer than 3 vertices.');
+        dropped.droppedHoleRings++;
       } else if (outerIsDegenerate || !isPointInShape(new THREE.Vector2(hole[0], hole[1]), sampled)) {
         regions.push({ layer: 'OUTLINE', shape: enforceWinding({ points: hole, holes: [] }) });
       } else {
@@ -44,5 +55,6 @@ export function outlineToCutPaths(shapes: THREE.Shape[] | null | undefined, t: O
     }
     if (!outerIsDegenerate) regions.push({ layer: 'OUTLINE', shape: enforceWinding({ points, holes }) });
   }
+  if (dropped.droppedOuterRings || dropped.droppedHoleRings) reportDrops?.(dropped);
   return { regions, bounds: boundsOf(regions) };
 }
