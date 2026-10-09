@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react';
+import { assetUrl } from '../utils/assetUrl';
 import { Canvas } from '@react-three/fiber';
 import { ThumbnailScene } from './STLThumbnail';
 
@@ -26,7 +27,7 @@ const ThumbnailGenerator: React.FC<ThumbnailGeneratorProps> = ({ file, onGenerat
                         <ThumbnailScene 
                             // Remount scene when file changes to ensure clean loader/geometry state
                             key={file} 
-                            url={`/${category}/${file}`} 
+                            url={assetUrl(category, file)}
                             onCapture={onGenerated} 
                             interactive={false} 
                         />

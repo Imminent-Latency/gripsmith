@@ -1,4 +1,5 @@
 import React from 'react';
+import { assetUrl } from '../../utils/assetUrl';
 import { BaseSettings } from '../../types/schemas';
 import { COLORS } from '../../constants/colors';
 import { FlipHorizontal, BookOpen } from 'lucide-react';
@@ -8,7 +9,8 @@ import DebouncedInput from '../DebouncedInput';
 import ToggleButton from '../ui/ToggleButton';
 import PatternLibraryModal, { PatternPreset } from '../PatternLibraryModal';
 import { useAlert } from '../../context/AlertContext';
-import { parseShapeFile } from '../../utils/shapeLoader';
+import { loadOutline } from '../../utils/outline/outlineCache';
+import { outlineUpdate, outlineCleared } from '../../utils/outline/outlineState';
 
 interface BaseControlsProps {
   settings: BaseSettings;
@@ -28,8 +30,8 @@ const BaseControls: React.FC<BaseControlsProps> = ({
   const [showLibrary, setShowLibrary] = React.useState(false);
   const { showAlert } = useAlert();
 
-  const handleOutlineLoaded = (shapes: any[], name: string | null, type?: 'dxf'|'svg'|'stl', content?: string | ArrayBuffer) => {
-      updateSettings({ cutoutShapes: shapes });
+  const handleOutlineLoaded = (shapes: any[], name: string | null, type?: 'dxf'|'svg'|'stl', content?: string | ArrayBuffer, ref: BaseSettings['outlineRef'] = name ? { kind: 'upload', presetId: null, name } : null) => {
+      updateSettings(outlineUpdate(shapes, ref));
       setFileName(name);
       onOutlineLoaded(shapes);
       if (name && content && type && onOutlineAssetChanged) {
@@ -43,13 +45,14 @@ const BaseControls: React.FC<BaseControlsProps> = ({
         <ShapeUploader 
             label="Upload Outline" 
             shapes={cutoutShapes || null}
-            fileName={fileName}
+            fileName={fileName ?? settings.outlineRef?.name ?? null}
             onUpload={(loadedShapes, name, type, content) => handleOutlineLoaded(loadedShapes, name, type, content)}
             onClear={() => {
-                updateSettings({ cutoutShapes: [] });
+                updateSettings(outlineCleared());
                 setFileName(null);
                 if (onOutlineAssetChanged) onOutlineAssetChanged(null);
             }}
+            onError={(message) => showAlert({ title: 'Error Loading Outline', message, type: 'error' })}
             allowedTypes={['dxf']}
             adornment={
                 <button
@@ -69,23 +72,15 @@ const BaseControls: React.FC<BaseControlsProps> = ({
             onSelect={async (preset: PatternPreset) => {
                 setShowLibrary(false);
                 try {
-                    const response = await fetch(`/${preset.category}/${preset.file}`);
-                    if (!response.ok) throw new Error('Failed to fetch');
-                    const text = await response.text();
-                    
                     if (preset.type === 'dxf' || preset.type === 'svg') {
-                        const result = parseShapeFile(text, preset.type as 'dxf'|'svg');
-                        if (result.success) {
-                            handleOutlineLoaded(result.shapes, preset.name, preset.type, text);
-                        } else {
-                            throw new Error(result.error);
-                        }
+                        const outline = await loadOutline(assetUrl(preset.category, preset.file));
+                        handleOutlineLoaded(outline.shapes, preset.name, preset.type, outline.text, { kind: 'preset', presetId: preset.id, name: preset.name });
                     }
                 } catch (error) {
                     console.error("Failed to load outline:", error);
                     showAlert({
                         title: "Error Loading Outline",
-                        message: "Failed to load the selected outline preset.",
+                        message: error instanceof Error ? error.message : "Failed to load the selected outline preset.",
                         type: "error"
                     });
                 }

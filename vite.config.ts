@@ -13,8 +13,7 @@ export default defineConfig({
       },
     }),
   ],
-  // Only needed if hosted without custom domain
-  // base: '/PubRemote/',
+  base: '/gripsmith/',
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
@@ -28,6 +27,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       include: [
+        'src/constants/**',
         'src/utils/**',
         'src/context/**',
         'src/components/DebouncedInput.tsx',

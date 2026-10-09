@@ -180,6 +180,8 @@ const Controls: React.FC<ControlsProps> = ({
                            const res = parseShapeFile(importedAssets.baseOutline.content, importedAssets.baseOutline.type);
                            if (res.success) {
                                newBase = { ...newBase, cutoutShapes: res.shapes };
+                           } else {
+                               console.warn("[Import] Failed to parse base outline:", res.error);
                            }
                        }
                        
@@ -224,6 +226,8 @@ const Controls: React.FC<ControlsProps> = ({
                                    // Let's use `true` for Inlays as they often use multi-color SVGs.
                                    if (res.success) {
                                        return { ...item, shapes: res.shapes };
+                                   } else {
+                                       return { ...item, shapes: [] };
                                    }
                                }
                                return item;
