@@ -28,10 +28,12 @@ const BaseControls: React.FC<BaseControlsProps> = ({
   const { size, thickness, color, cutoutShapes } = settings;
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [showLibrary, setShowLibrary] = React.useState(false);
+  const [outlineRevision, setOutlineRevision] = React.useState(0);
   const { showAlert } = useAlert();
 
   const handleOutlineLoaded = (shapes: any[], name: string | null, type?: 'dxf'|'svg'|'stl', content?: string | ArrayBuffer, ref: BaseSettings['outlineRef'] = name ? { kind: 'upload', presetId: null, name } : null) => {
       updateSettings(outlineUpdate(shapes, ref));
+      setOutlineRevision(current => current + 1);
       setFileName(name);
       onOutlineLoaded(shapes);
       if (name && content && type && onOutlineAssetChanged) {
@@ -115,6 +117,7 @@ const BaseControls: React.FC<BaseControlsProps> = ({
               <div className="flex-1 min-w-0">
                 <ControlField label="Rotation (deg)" tooltip="Rotate the base outline">
                     <DebouncedInput
+                    key={outlineRevision}
                     type="number"
                     value={settings.baseOutlineRotation || 0}
                     onChange={(val) => updateSettings({ baseOutlineRotation: Number(val) })}
