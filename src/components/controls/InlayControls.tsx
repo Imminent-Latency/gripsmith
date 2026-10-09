@@ -29,9 +29,13 @@ import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_SEED } from "../../utils/random/prng";
 import ParamField from "../params/ParamField";
 import { useParamContext } from "../../context/ParamContext";
+import { resolveDerivable } from "../../utils/params/resolve";
+import type { ParamContextValue } from "../../utils/params/types";
 
 /** Shapes used for scale/position math. */
 const offsetShapesFor = (item: InlayItem): any[] => item.shapes || [];
+// Use the same derived bound for the depth input and its help text.
+const maxDepth = (ctx: ParamContextValue) => Math.max(0.1, parseFloat((ctx.base.thickness - 0.1).toFixed(2)));
 
 interface InlayControlsProps {
   settings: InlaySettings;
@@ -56,8 +60,6 @@ const InlayControls: React.FC<InlayControlsProps> = ({
   setSelectedInlayId,
   onInlayAssetChanged,
 }) => {
-  // Max allowed depth = thickness - 0.1mm (must always leave a floor)
-  const maxDepth = Math.max(0.1, parseFloat((baseThickness - 0.1).toFixed(2)));
   const { showAlert } = useAlert();
   const { items } = settings;
 
@@ -659,9 +661,9 @@ const InlayControls: React.FC<InlayControlsProps> = ({
               <ParamField
                 descriptor={{
                   key: 'depth', kind: 'number', label: 'Inlay Depth (mm)', unit: 'mm',
-                  min: 0.1, max: ctx => Math.max(0.1, parseFloat((ctx.base.thickness - 0.1).toFixed(2))),
+                  min: 0.1, max: maxDepth,
                   step: 0.1, clamp: true, regenerates: true,
-                  tooltip: `How deep this inlay cuts into the base (max ${maxDepth}mm)`,
+                  tooltip: `How deep this inlay cuts into the base (max ${resolveDerivable(maxDepth, paramContext)}mm)`,
                 }}
                 settings={{ ...selectedItem, depth: selectedItem.depth || 0.4 }}
                 onChange={updates => updateItem(selectedItem.id, updates)}

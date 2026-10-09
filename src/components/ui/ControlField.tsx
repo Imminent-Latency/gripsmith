@@ -1,5 +1,9 @@
 import React from 'react';
 import Tooltip from './Tooltip';
+import DebouncedInput from '../DebouncedInput';
+import ToggleButton from './ToggleButton';
+import SegmentedControl from './SegmentedControl';
+import Slider from './Slider';
 
 interface ControlFieldProps {
   label: string;
@@ -21,14 +25,15 @@ const ControlField: React.FC<ControlFieldProps> = ({
   action
 }) => {
   const generatedId = React.useId();
-  const isNativeControl = React.isValidElement<{ id?: string; 'aria-describedby'?: string }>(children)
-    && typeof children.type === 'string'
-    && ['input', 'select', 'textarea', 'button'].includes(children.type);
-  const id = isNativeControl ? children.props.id || generatedId : generatedId;
+  const isLabelControl = React.isValidElement<{ id?: string; 'aria-describedby'?: string }>(children)
+    && ((typeof children.type === 'string' && ['input', 'select', 'textarea', 'button'].includes(children.type))
+      || children.type === DebouncedInput || children.type === ToggleButton
+      || children.type === SegmentedControl || children.type === Slider);
+  const id = isLabelControl ? children.props.id || generatedId : generatedId;
   const describedBy = helperText || error ? `${generatedId}-description` : undefined;
   const content = typeof children === 'function'
     ? children({ id, describedBy })
-    : isNativeControl
+    : isLabelControl
       ? React.cloneElement(children, {
           id,
           'aria-describedby': [children.props['aria-describedby'], describedBy].filter(Boolean).join(' ') || undefined,
@@ -38,7 +43,7 @@ const ControlField: React.FC<ControlFieldProps> = ({
     <div className={`space-y-1.5 ${className}`}>
       <div className="flex items-center justify-between h-5 overflow-visible">
         <div className="flex items-center">
-            <label htmlFor={isNativeControl || typeof children === 'function' ? id : undefined} className="text-sm font-medium text-gray-300 select-none">
+            <label htmlFor={isLabelControl || typeof children === 'function' ? id : undefined} className="text-sm font-medium text-gray-300 select-none">
             {label}
             </label>
             {tooltip && <Tooltip content={tooltip} />}

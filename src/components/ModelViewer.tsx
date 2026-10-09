@@ -50,7 +50,7 @@ const ModelViewer: React.FC<ModelViewerProps> = ({
       isTiled, tileSpacing, patternMargin, 
       tilingDistribution, tilingDirection, tilingOrientation,
       clipToOutline, debugMode, patternColor: geomPatternColor, rotationClamp, seed,
-      holeMode
+      holeMode, baseRotation, patternMaxHeight
   } = geometrySettings;
 
   const [viewState, setViewState] = useState<ViewState>({ type: 'ortho', timestamp: Date.now() });
@@ -476,10 +476,10 @@ const ModelViewer: React.FC<ModelViewerProps> = ({
                 tilingDistribution={tilingDistribution}
                 tilingDirection={tilingDirection}
                 tilingOrientation={tilingOrientation}
-                baseRotation={geometrySettings.baseRotation}
+                baseRotation={baseRotation}
                 rotationClamp={rotationClamp}
                 seed={seed}
-                patternMaxHeight={geometrySettings.patternMaxHeight === '' ? undefined : Number(geometrySettings.patternMaxHeight)}
+                patternMaxHeight={patternMaxHeight === '' ? undefined : Number(patternMaxHeight)}
                 clipToOutline={clipToOutline}
                 holeMode={holeMode}
                 
