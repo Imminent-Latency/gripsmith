@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { exportProjectBundle, importProjectBundle } from './projectUtils';
 import { defaultBaseSettings, defaultInlaySettings, defaultGeometrySettings } from './schemaDefaults';
 import JSZip from 'jszip';
+import { ProjectSchema } from '../types/schemas';
 
 describe('projectUtils utility', () => {
   let mockLink: any;
@@ -58,6 +59,33 @@ describe('projectUtils utility', () => {
   });
 
   describe('importProjectBundle', () => {
+    it('imports a pre-seed v1 project and supplies both seed defaults', async () => {
+      const fixture = {
+        version: 1,
+        timestamp: 0,
+        base: { size: 250, thickness: 0.6, color: '#000000', cutoutShapes: null, baseOutlineRotation: 0, baseOutlineMirror: false },
+        inlay: { items: [{ id: 'legacy-layer', shapes: [], scale: 1, rotation: 0, mirror: false, mode: 'tile', tilingDistribution: 'random' }] },
+        geometry: { patternShapes: null, tilingDistribution: 'random' },
+      };
+      const json = JSON.stringify(fixture);
+      expect(json).not.toMatch(/"seed"\s*:/);
+      const parsed = ProjectSchema.safeParse(fixture);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success) throw parsed.error;
+      expect(parsed.data.geometry.seed).toBe(1);
+      expect(parsed.data.inlay.items[0].seed).toBe(1);
+
+      const zip = new JSZip();
+      zip.file('project.json', json);
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const file = new File([zipBlob], 'pre-seed.zip', { type: 'application/zip' });
+      const result = await importProjectBundle(file);
+      expect(result.versionMismatch).toBe(false);
+      expect(result.data.geometry.seed).toBe(1);
+      expect(result.data.inlay.items[0].seed).toBe(1);
+    });
+
+
     it('throws error for non-zip files', async () => {
       const mockFile = new File(['random content'], 'project.json', { type: 'application/json' });
       await expect(importProjectBundle(mockFile)).rejects.toThrow('Only .zip bundles are supported.');

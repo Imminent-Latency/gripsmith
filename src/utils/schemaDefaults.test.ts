@@ -1,8 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
+import { GeometrySettingsSchema, InlaySettingsSchema } from '../types/schemas';
 import { getDefaults, defaultBaseSettings, defaultInlaySettings, defaultGeometrySettings } from './schemaDefaults';
 
 describe('schemaDefaults utility', () => {
+  it('defaults geometry and the literal inlay item to seed 1', () => {
+    expect(getDefaults(GeometrySettingsSchema).seed).toBe(1);
+    expect(getDefaults(InlaySettingsSchema).items[0].seed).toBe(1);
+  });
+
   it('getDefaults extracts default values from a zod schema', () => {
     const testSchema = z.object({
       str: z.string().default('hello'),

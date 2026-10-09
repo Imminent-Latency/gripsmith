@@ -25,6 +25,7 @@ import { centerShapes, calculateInlayScale, calculateInlayOffset } from "../../u
 import { parseShapeFile } from "../../utils/shapeLoader";
 import ImageConversionModal from "../ImageConversionModal";
 import { v4 as uuidv4 } from "uuid";
+import { DEFAULT_SEED } from "../../utils/random/prng";
 
 /** Shapes used for scale/position math. */
 const offsetShapesFor = (item: InlayItem): any[] => item.shapes || [];
@@ -98,6 +99,7 @@ const InlayControls: React.FC<InlayControlsProps> = ({
   const handleAddLayer = () => {
     const newItem: InlayItem = {
       id: uuidv4(),
+      seed: DEFAULT_SEED,
       name: "New Layer",
       shapes: [],
       scale: 1,
@@ -136,6 +138,7 @@ const InlayControls: React.FC<InlayControlsProps> = ({
       const scale = calculateInlayScale(shapes, cutoutShapes || null, baseSize);
       const newItem: InlayItem = {
         id: uuidv4(),
+        seed: DEFAULT_SEED,
         name: name || "Custom Pattern",
         shapes: shapes,
         scale: scale,

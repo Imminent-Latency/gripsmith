@@ -329,19 +329,48 @@ describe('patternUtils utility', () => {
       expect(positions.length).toBeGreaterThan(0);
     });
 
-    it('generates tile positions in random mode', () => {
+    const tuple = (ps: ReturnType<typeof generateTilePositions>) =>
+      ps.map(p => [p.position.x, p.position.y, p.rotation, p.scale]);
+
+    it('reproduces random placement from its seed and varies with another seed', () => {
       const bounds = new THREE.Box2(new THREE.Vector2(-50, -50), new THREE.Vector2(50, 50));
-      const positions = generateTilePositions(
-        bounds,
-        10,
-        10,
-        5,
-        null,
-        0,
-        false,
-        'random'
+      const run = (seed: number) => generateTilePositions(
+        bounds, 10, 10, 5, null, 0, false, 'random', 'none', 'horizontal', null, null, null, seed
       );
-      expect(positions.length).toBeGreaterThan(0);
+      const a = run(1);
+      expect(a.length).toBeGreaterThan(0);
+      expect(tuple(a)).toEqual(tuple(run(1)));
+      expect(tuple(a)).not.toEqual(tuple(run(2)));
+    });
+
+    it('reproduces random orientations from its seed and varies with another seed', () => {
+      const bounds = new THREE.Box2(new THREE.Vector2(-50, -50), new THREE.Vector2(50, 50));
+      const run = (seed: number) => generateTilePositions(
+        bounds, 10, 10, 5, null, 0, false, 'grid', 'random', 'horizontal', null, null, null, seed
+      ).map(p => p.rotation);
+      const a = run(1);
+      expect(a.length).toBeGreaterThan(0);
+      expect(a).toEqual(run(1));
+      expect(a).not.toEqual(run(2));
+    });
+
+    it('keeps a 13-argument call valid without an explicit seed', () => {
+      const bounds = new THREE.Box2(new THREE.Vector2(-50, -50), new THREE.Vector2(50, 50));
+      const tiles = generateTilePositions(
+        bounds, 10, 10, 5, null, 0, false, 'grid', 'none', 'horizontal', null, null, null
+      );
+      expect(tiles.length).toBeGreaterThan(0);
+    });
+
+    it('seeds the exact 14-argument main-thread inlay call shape', () => {
+      const bounds = new THREE.Box2(new THREE.Vector2(-50, -50), new THREE.Vector2(50, 50));
+      const run = (seed: number) => generateTilePositions(
+        bounds, 10, 10, 5, null, 0, true, 'random', 'none', 'horizontal', null, null, null, seed
+      );
+      const a = run(1);
+      expect(a.length).toBeGreaterThan(0);
+      expect(tuple(a)).toEqual(tuple(run(1)));
+      expect(tuple(a)).not.toEqual(tuple(run(2)));
     });
 
 

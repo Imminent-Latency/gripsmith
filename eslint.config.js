@@ -37,5 +37,17 @@ export default tseslint.config(
       'no-constant-binary-expression': 'warn',
       'no-empty': 'off',
     },
+  },
+  {
+    files: ['src/utils/**', 'src/components/ImperativeModel.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "MemberExpression[object.name='Math'][property.name='random'], MemberExpression[object.name='Math'][property.value='random']",
+          message: 'Use the seeded PRNG from src/utils/random/prng.ts for geometry randomness.',
+        },
+      ],
+    },
   }
 );
