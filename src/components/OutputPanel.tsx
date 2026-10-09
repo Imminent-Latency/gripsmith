@@ -24,13 +24,24 @@ const OutputPanel: React.FC<OutputPanelProps> = ({ meshRef, debugMode = false, c
   const { showAlert } = useAlert();
 
   const handleFlatExport = (format: 'svg' | 'dxf') => {
-    const paths = outlineToCutPaths(cutoutShapes, { mirror: baseOutlineMirror, rotationDeg: baseOutlineRotation });
-    if (!paths || paths.regions.length === 0) {
+    let dropMessage = '';
+    const paths = outlineToCutPaths(cutoutShapes, { mirror: baseOutlineMirror, rotationDeg: baseOutlineRotation }, ({ droppedOuterRings, droppedHoleRings }) => {
+      dropMessage = `Dropped ${droppedOuterRings} outline ring(s) and ${droppedHoleRings} hole ring(s) with fewer than 3 vertices.`;
+    });
+    if (!paths) {
       showAlert({ title: 'Export Error', message: 'Load a pad outline before exporting cut paths.', type: 'warning' });
       return;
     }
+    if (paths.regions.length === 0) {
+      showAlert({ title: 'Export Error', message: `The loaded outline has no exportable regions. ${dropMessage} No file was downloaded.`, type: 'warning' });
+      return;
+    }
+    const warnings = dropMessage ? [dropMessage] : [];
     if (paths.regions.some(({ shape }) => [shape.points, ...shape.holes].some(hasSelfIntersection))) {
-      showAlert({ title: 'Cut Path Warning', message: 'The outline contains self-intersecting paths. The file has been exported; check the paths before cutting.', type: 'warning' });
+      warnings.push('The outline contains self-intersecting paths.');
+    }
+    if (warnings.length) {
+      showAlert({ title: 'Cut Path Warning', message: `${warnings.join(' ')} The file has been exported; check the paths before cutting.`, type: 'warning' });
     }
     downloadText(`gripsmith-outline.${format}`, format === 'svg' ? 'image/svg+xml' : 'application/dxf', format === 'svg' ? writeCutSvg(paths) : writeCutDxf(paths));
   };
