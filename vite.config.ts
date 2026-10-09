@@ -31,6 +31,7 @@ export default defineConfig({
         'src/utils/**',
         'src/context/**',
         'src/components/DebouncedInput.tsx',
+        'src/components/params/**', 'src/hooks/**',
         'src/components/Spinner.tsx'
       ],
     },
