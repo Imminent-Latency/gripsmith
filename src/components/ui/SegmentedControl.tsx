@@ -8,6 +8,7 @@ export interface SegmentedControlOption<T extends string> {
 
 interface SegmentedControlProps<T extends string> {
   id?: string;
+  'aria-describedby'?: string;
   options: SegmentedControlOption<T>[];
   value: T;
   onChange: (value: T) => void;
@@ -16,6 +17,7 @@ interface SegmentedControlProps<T extends string> {
 
 export function SegmentedControl<T extends string>({
   id,
+  'aria-describedby': describedBy,
   options,
   value,
   onChange,
@@ -28,6 +30,7 @@ export function SegmentedControl<T extends string>({
         return (
           <button
             id={isActive ? id : undefined}
+            aria-describedby={describedBy}
             key={option.value}
             onClick={() => onChange(option.value)}
             className={`flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md text-sm font-medium transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${

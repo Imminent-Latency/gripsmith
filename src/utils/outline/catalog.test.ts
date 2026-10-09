@@ -5,14 +5,26 @@ import { BaseSettingsSchema, ProjectSchemaV1 } from '../../types/schemas';
 import { getDefaults, defaultInlaySettings, defaultGeometrySettings } from '../schemaDefaults';
 import { exportProjectBundle, importProjectBundle } from '../projectUtils';
 
+const historicalCatalog = JSON.parse(readFileSync('src/utils/outline/fixtures/catalog-60b66c2.json', 'utf8'));
+let restoreObjectURLs: (() => void) | undefined;
+
 afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    restoreObjectURLs?.();
+    restoreObjectURLs = undefined;
 });
 
 describe('preset catalog', () => {
     it('contains the existing 43 presets', () => {
         expect(PRESETS).toHaveLength(43);
+    });
+
+    it('preserves every name, format, category and id from the historical 43-row census', () => {
+        // Frozen from the stable-ID commit, independently checked against upstream's catalog.
+        expect(historicalCatalog.rows).toHaveLength(43);
+        expect(PRESETS.map(({ file, name, type, category, id }) => ({ file, name, type, category, id })))
+            .toEqual(historicalCatalog.rows);
     });
 
     it('matches all 17 outline files on disk', () => {
@@ -84,7 +96,16 @@ describe('outline identity persistence', () => {
     it('round-trips the preset reference through the projectUtils ZIP bundle', async () => {
         const outlineRef = { kind: 'preset' as const, presetId: 'outline/pint', name: 'Pint' };
         const createObjectURL = vi.fn<(blob: Blob) => string>().mockReturnValue('blob:outline-bundle');
-        vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() });
+        const nativeURL = URL;
+        const methods = { createObjectURL, revokeObjectURL: vi.fn() };
+        const originals = Object.keys(methods).map(key => [key, Object.getOwnPropertyDescriptor(URL, key)] as const);
+        restoreObjectURLs = () => originals.forEach(([key, descriptor]) => {
+            if (descriptor) Object.defineProperty(nativeURL, key, descriptor);
+            else Reflect.deleteProperty(nativeURL, key);
+        });
+        for (const [key, value] of Object.entries(methods)) {
+            Object.defineProperty(URL, key, { configurable: true, writable: true, value });
+        }
         vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
         await exportProjectBundle(
             { ...getDefaults(BaseSettingsSchema), outlineRef },
@@ -92,6 +113,9 @@ describe('outline identity persistence', () => {
             { baseOutline: { name: 'pint.dxf', content: 'SECTION\nHEADER', type: 'dxf' } },
         );
         expect(createObjectURL).toHaveBeenCalledOnce();
+        expect(URL).toBe(nativeURL);
+        expect(new URL('outlines/pint.dxf', 'https://example.test/gripsmith/').pathname)
+            .toBe('/gripsmith/outlines/pint.dxf');
         const blob = createObjectURL.mock.calls[0][0];
         const result = await importProjectBundle(new File([blob], 'outline.zip', { type: 'application/zip' }));
         expect(result.data.base.outlineRef).toEqual(outlineRef);

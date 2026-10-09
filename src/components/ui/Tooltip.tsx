@@ -36,7 +36,7 @@ const Tooltip: React.FC<TooltipProps> = ({ content }) => {
 
   return (
     <>
-      <button type="button" aria-label="More information" aria-describedby={isVisible ? tooltipId : undefined}
+      <button type="button" aria-label="More information" aria-describedby={tooltipId}
         ref={triggerRef}
         className="relative inline-flex items-center ml-2"
         onMouseEnter={() => {
@@ -58,18 +58,18 @@ const Tooltip: React.FC<TooltipProps> = ({ content }) => {
         />
       </button>
       
-      {isVisible && createPortal(
+      {createPortal(
         <div id={tooltipId} role="tooltip"
-            className="fixed z-[9999] w-48 p-2 bg-gray-900 border border-gray-700 rounded-lg shadow-xl text-xs text-gray-300 pointer-events-none animate-in fade-in zoom-in-95 duration-200"
-            style={{
+            className={isVisible ? "fixed z-[9999] w-48 p-2 bg-gray-900 border border-gray-700 rounded-lg shadow-xl text-xs text-gray-300 pointer-events-none animate-in fade-in zoom-in-95 duration-200" : "sr-only"}
+            style={isVisible ? {
                 left: coords.left,
                 top: coords.top,
                 transform: 'translate(-50%, -100%)', // Center horizontally, move up by 100% height
-            }}
+            } : undefined}
         >
           {content}
           {/* Arrow */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-gray-700" />
+          {isVisible && <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-gray-700" />}
         </div>,
         document.body
       )}

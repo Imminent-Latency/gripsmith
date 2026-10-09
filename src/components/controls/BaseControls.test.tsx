@@ -7,6 +7,7 @@ import type { BaseSettings } from '../../types/schemas';
 import type { PatternPreset } from '../PatternLibraryModal';
 import { AlertProvider } from '../../context/AlertContext';
 import { defaultBaseSettings } from '../../utils/schemaDefaults';
+import { loadOutline } from '../../utils/outline/outlineCache';
 
 vi.mock('../../utils/outline/outlineCache', () => ({
     loadOutline: vi.fn(async () => {
@@ -20,9 +21,9 @@ vi.mock('../../utils/outline/outlineCache', () => ({
 // presentation are replaced so the reset/debounce boundary uses fake timers.
 vi.mock('../PatternLibraryModal', () => ({
     default: ({ isOpen, onSelect }: { isOpen: boolean; onSelect: (preset: PatternPreset) => void }) => isOpen
-        ? <div>{['Pint', 'GT Stock'].map(name => <button key={name} onClick={() => onSelect({
-            id: name === 'Pint' ? 'outline/pint' : 'outline/gtstock', name,
-            file: name === 'Pint' ? 'pint.dxf' : 'gtstock.dxf', type: 'dxf', category: 'outlines',
+        ? <div>{['Pint', 'GT Stock', 'SVG Outline'].map(name => <button key={name} onClick={() => onSelect({
+            id: name === 'SVG Outline' ? 'outline/svg-outline' : name === 'Pint' ? 'outline/pint' : 'outline/gtstock', name,
+            file: name === 'SVG Outline' ? 'svg-outline.svg' : name === 'Pint' ? 'pint.dxf' : 'gtstock.dxf', type: name === 'SVG Outline' ? 'svg' : 'dxf', category: 'outlines',
         })}>Pick {name}</button>)}</div> : null,
 }));
 
@@ -57,6 +58,15 @@ async function pick(name: string) {
     fireEvent.click(screen.getByTitle('Open Outline Library'));
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: `Pick ${name}` })); });
 }
+
+it('forwards each selected outline preset format to the cache', async () => {
+    setup();
+    vi.mocked(loadOutline).mockClear();
+    await pick('Pint');
+    expect(loadOutline).toHaveBeenLastCalledWith('/gripsmith/outlines/pint.dxf', 'dxf');
+    await pick('SVG Outline');
+    expect(loadOutline).toHaveBeenLastCalledWith('/gripsmith/outlines/svg-outline.svg', 'svg');
+});
 
 it.each([0, 149, 150, 450])('outline reset discards a rotation edit after %s ms without replaying it', async elapsed => {
     const { updates, state } = setup();

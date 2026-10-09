@@ -2,6 +2,7 @@ import React from 'react';
 
 interface ToggleButtonProps {
   id?: string;
+  'aria-describedby'?: string;
   label: React.ReactNode;
   isToggled: boolean;
   onToggle: () => void;
@@ -12,6 +13,7 @@ interface ToggleButtonProps {
 
 const ToggleButton: React.FC<ToggleButtonProps> = ({
   id,
+  'aria-describedby': describedBy,
   label,
   isToggled,
   onToggle,
@@ -22,6 +24,8 @@ const ToggleButton: React.FC<ToggleButtonProps> = ({
   return (
     <button
       id={id}
+      aria-describedby={describedBy}
+      aria-pressed={isToggled}
       onClick={onToggle}
       title={title}
       className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${

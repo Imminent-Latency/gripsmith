@@ -13,6 +13,25 @@ function descendants(node: ts.Node): ts.Node[] {
     return nodes;
 }
 
+function isSetting(expression: ts.Expression, key: string, locals: string[]): boolean {
+    return (ts.isIdentifier(expression) && locals.includes(expression.text)) ||
+        (ts.isPropertyAccessExpression(expression) && ts.isIdentifier(expression.expression) &&
+            expression.expression.text === 'geometrySettings' && expression.name.text === key);
+}
+
+// A mention buried in an unrelated expression is not a forward. Only the two
+// existing optional numeric fields perform the empty-string/Number conversion.
+function isForward(expression: ts.Expression, key: string, locals: string[]): boolean {
+    if (isSetting(expression, key, locals)) return true;
+    if (!['patternScaleZ', 'patternMaxHeight'].includes(key) || !ts.isConditionalExpression(expression)) return false;
+    const { condition, whenTrue, whenFalse } = expression;
+    return ts.isBinaryExpression(condition) && condition.operatorToken.kind === ts.SyntaxKind.EqualsEqualsEqualsToken &&
+        isSetting(condition.left, key, locals) && ts.isStringLiteral(condition.right) && condition.right.text === '' &&
+        ts.isIdentifier(whenTrue) && whenTrue.text === 'undefined' &&
+        ts.isCallExpression(whenFalse) && ts.isIdentifier(whenFalse.expression) && whenFalse.expression.text === 'Number' &&
+        whenFalse.arguments.length === 1 && isSetting(whenFalse.arguments[0], key, locals);
+}
+
 const model = ts.createSourceFile('ImperativeModel.tsx', modelText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const viewer = ts.createSourceFile('ModelViewer.tsx', viewerText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const modelNodes = descendants(model);
@@ -44,7 +63,7 @@ describe('T7: every regenerating geometry descriptor reaches the model effect', 
             ts.isIdentifier(member.name) && member.name.text === key),
             '(b) ' + key + ' must be declared in ImperativeModelProps').toBe(true);
 
-        expect(models.length, 'ImperativeModel JSX must exist').toBeGreaterThan(0);
+        expect(models.length, 'the single ImperativeModel JSX must exist').toBe(1);
         const locals = bindings.flatMap(binding => ts.isObjectBindingPattern(binding.name)
             ? binding.name.elements.filter(element => !element.dotDotDotToken &&
                 (element.propertyName ?? element.name).getText(viewer) === key &&
@@ -55,14 +74,35 @@ describe('T7: every regenerating geometry descriptor reaches the model effect', 
                 ts.isJsxAttribute(property) && ts.isIdentifier(property.name) && property.name.text === key);
             const initializer = attribute && ts.isJsxAttribute(attribute) ? attribute.initializer : undefined;
             const expression = initializer && ts.isJsxExpression(initializer) ? initializer.expression : undefined;
-            // Both destructured forwards and the pre-existing baseRotation /
-            // patternMaxHeight geometrySettings.<key> expressions are valid.
-            const derived = expression && descendants(expression).some(node =>
-                (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) &&
-                    node.expression.text === 'geometrySettings' && node.name.text === key) ||
-                (ts.isIdentifier(node) && locals.includes(node.text) &&
-                    !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node)));
+            if (['baseRotation', 'patternMaxHeight'].includes(key)) {
+                expect(locals, key + ' must be destructured from geometrySettings').toEqual([key]);
+                expect(expression?.getText(viewer), key + ' must preserve its existing value semantics').toBe(
+                    key === 'baseRotation' ? 'baseRotation' : "patternMaxHeight === '' ? undefined : Number(patternMaxHeight)");
+            }
+            const derived = expression && isForward(expression, key, locals);
             expect(Boolean(derived), '(c) ' + key + ' must be forwarded from geometrySettings as its own JSX attribute').toBe(true);
         }
+    });
+});
+
+describe('T7: forward expression guard rejects misleading mentions', () => {
+    it.each([
+        ['baseRotation', 'baseRotation', true],
+        ['baseRotation', 'geometrySettings.baseRotation', true],
+        ['patternMaxHeight', "patternMaxHeight === '' ? undefined : Number(patternMaxHeight)", true],
+        ['patternMaxHeight', "geometrySettings.patternMaxHeight === '' ? undefined : Number(geometrySettings.patternMaxHeight)", true],
+        ['baseRotation', '0', false],
+        ['baseRotation', 'rotationClamp', false],
+        ['baseRotation', '(baseRotation, 0)', false],
+        ['baseRotation', 'false ? baseRotation : 0', false],
+        ['baseRotation', 'baseRotation + 1', false],
+        ['baseRotation', 'other.baseRotation', false],
+        ['patternMaxHeight', "patternMaxHeight === '' ? undefined : Number(patternScaleZ)", false],
+        ['patternMaxHeight', "patternMaxHeight === '' ? 0 : Number(patternMaxHeight)", false],
+        ['patternMaxHeight', "patternMaxHeight === '' ? undefined : Number(patternMaxHeight + 1)", false],
+    ] as const)('%s forwarded as %s: %s', (key, source, expected) => {
+        const fixture = ts.createSourceFile('fixture.ts', `const value = ${source};`, ts.ScriptTarget.Latest, true);
+        const expression = descendants(fixture).filter(ts.isVariableDeclaration)[0].initializer!;
+        expect(isForward(expression, key, [key])).toBe(expected);
     });
 });

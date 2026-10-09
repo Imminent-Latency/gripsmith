@@ -1,0 +1,309 @@
+{
+  "sourceRevision": "60b66c2f248a07e36b5a04155fe9ca07440cbb87",
+  "sourcePath": "src/constants/presets.ts",
+  "upstreamRevision": "cf698036f28f86e4d70c00b24a2283b5ab7d3f49",
+  "sourceSha256": "0479aa6821fec462fc14a7343e031babf58e3e8979ca3e2831ec6c5ee1cb1686",
+  "rows": [
+    {
+      "file": "pyramid.stl",
+      "name": "Pyramid",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/pyramid"
+    },
+    {
+      "file": "grippysheet-v1.stl",
+      "name": "GrippySheet V1",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/grippysheet-v1"
+    },
+    {
+      "file": "dome.stl",
+      "name": "Dome",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/dome"
+    },
+    {
+      "file": "stud.stl",
+      "name": "Stud",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/stud"
+    },
+    {
+      "file": "tryramid.stl",
+      "name": "Tryramid",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/tryramid"
+    },
+    {
+      "file": "hexyramid.stl",
+      "name": "Hexyramid",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/hexyramid"
+    },
+    {
+      "file": "bevelled-cube.stl",
+      "name": "Bevelled Cube",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/bevelled-cube"
+    },
+    {
+      "file": "pyramid-skewed.stl",
+      "name": "Skewed Pyramid",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/pyramid-skewed"
+    },
+    {
+      "file": "nipple.stl",
+      "name": "Nipple",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/nipple"
+    },
+    {
+      "file": "pubgrip.stl",
+      "name": "PubGrip",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/pubgrip"
+    },
+    {
+      "file": "thane-classic.stl",
+      "name": "Thane Classic",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/thane-classic"
+    },
+    {
+      "file": "mitsi.stl",
+      "name": "Mitsi",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/mitsi"
+    },
+    {
+      "file": "polypore-single.stl",
+      "name": "Polypore Single",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/polypore-single"
+    },
+    {
+      "file": "polypore-flower.stl",
+      "name": "Polypore Flower",
+      "type": "stl",
+      "category": "patterns",
+      "id": "pattern/polypore-flower"
+    },
+    {
+      "file": "grippysheet.svg",
+      "name": "GrippySheet",
+      "type": "svg",
+      "category": "inlays",
+      "id": "inlay/grippysheet"
+    },
+    {
+      "file": "grippysheetalt.svg",
+      "name": "GrippySheet Alt",
+      "type": "svg",
+      "category": "inlays",
+      "id": "inlay/grippysheetalt"
+    },
+    {
+      "file": "grippysheetdrip.svg",
+      "name": "GrippySheet Drip",
+      "type": "svg",
+      "category": "inlays",
+      "id": "inlay/grippysheetdrip"
+    },
+    {
+      "file": "grippysheetbadge.svg",
+      "name": "GrippySheet Badge",
+      "type": "svg",
+      "category": "inlays",
+      "id": "inlay/grippysheetbadge"
+    },
+    {
+      "file": "grippysheetbadgealt.svg",
+      "name": "GrippySheet Alt Badge",
+      "type": "svg",
+      "category": "inlays",
+      "id": "inlay/grippysheetbadgealt"
+    },
+    {
+      "file": "pubmote.svg",
+      "name": "Pubmote",
+      "type": "svg",
+      "category": "inlays",
+      "id": "inlay/pubmote"
+    },
+    {
+      "file": "floatwheel.svg",
+      "name": "Floatwheel",
+      "type": "svg",
+      "category": "inlays",
+      "id": "inlay/floatwheel"
+    },
+    {
+      "file": "trogdor.svg",
+      "name": "Trogdor the Burninator",
+      "type": "svg",
+      "category": "inlays",
+      "id": "inlay/trogdor"
+    },
+    {
+      "file": "spooderman.svg",
+      "name": "Spooderman",
+      "type": "svg",
+      "category": "inlays",
+      "id": "inlay/spooderman"
+    },
+    {
+      "file": "dolan.svg",
+      "name": "Dolan Duck",
+      "type": "svg",
+      "category": "inlays",
+      "id": "inlay/dolan"
+    },
+    {
+      "file": "gooby.svg",
+      "name": "Gooby",
+      "type": "svg",
+      "category": "inlays",
+      "id": "inlay/gooby"
+    },
+    {
+      "file": "matixbuilt.svg",
+      "name": "MatixBuilt",
+      "type": "svg",
+      "category": "inlays",
+      "id": "inlay/matixbuilt"
+    },
+    {
+      "file": "xrstock.dxf",
+      "name": "XR Stock",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/xrstock"
+    },
+    {
+      "file": "xrcobraviper.dxf",
+      "name": "XR Cobra/Viper",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/xrcobraviper"
+    },
+    {
+      "file": "xrkushwide.dxf",
+      "name": "XR Kush Wide",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/xrkushwide"
+    },
+    {
+      "file": "xrmushiesv2.dxf",
+      "name": "XR Mushies V2",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/xrmushiesv2"
+    },
+    {
+      "file": "xrpubpad.dxf",
+      "name": "XR PubPad",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/xrpubpad"
+    },
+    {
+      "file": "xrstompies.dxf",
+      "name": "XR Stompies",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/xrstompies"
+    },
+    {
+      "file": "xrviperbitewide.dxf",
+      "name": "XR Viperbite Wide",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/xrviperbitewide"
+    },
+    {
+      "file": "floatwheeladv.dxf",
+      "name": "Floatwheel ADV",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/floatwheeladv"
+    },
+    {
+      "file": "floatwheelatom.dxf",
+      "name": "Floatwheel Atom",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/floatwheelatom"
+    },
+    {
+      "file": "gtstock.dxf",
+      "name": "GT Stock",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/gtstock"
+    },
+    {
+      "file": "gtkushwide.dxf",
+      "name": "GT Kush Wide",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/gtkushwide"
+    },
+    {
+      "file": "gtmushies.dxf",
+      "name": "GT Mushies",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/gtmushies"
+    },
+    {
+      "file": "gtfst.dxf",
+      "name": "GT FST",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/gtfst"
+    },
+    {
+      "file": "gtlowboyflared.dxf",
+      "name": "GT Lowboy Flared",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/gtlowboyflared"
+    },
+    {
+      "file": "pint.dxf",
+      "name": "Pint",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/pint"
+    },
+    {
+      "file": "pintmatix.dxf",
+      "name": "Pint Matix",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/pintmatix"
+    },
+    {
+      "file": "gosmilox7.dxf",
+      "name": "Gosmilo X7",
+      "type": "dxf",
+      "category": "outlines",
+      "id": "outline/gosmilox7"
+    }
+  ]
+}
