@@ -12,15 +12,16 @@ export interface CachedOutline {
 // The bundled catalog has 17 fixed URLs; successful entries live for the session.
 const outlines = new Map<string, Promise<CachedOutline>>();
 
-export const loadOutline = (url: string): Promise<CachedOutline> => {
-    const cached = outlines.get(url);
+export const loadOutline = (url: string, type: 'dxf' | 'svg' = 'dxf'): Promise<CachedOutline> => {
+    const key = JSON.stringify([url, type]);
+    const cached = outlines.get(key);
     if (cached) return cached;
 
     const pending = (async (): Promise<CachedOutline> => {
         const response = await fetch(url);
-        if (!response.ok) throw new Error('Failed to fetch DXF');
+        if (!response.ok) throw new Error(`Failed to fetch ${type.toUpperCase()}`);
         const text = await response.text();
-        const result = parseShapeFile(text, 'dxf');
+        const result = parseShapeFile(text, type);
         if (!result.success) throw new Error(result.error);
         const shapes: THREE.Shape[] = result.shapes;
         const path = generateSVGPath(shapes);
@@ -33,7 +34,7 @@ export const loadOutline = (url: string): Promise<CachedOutline> => {
             });
         });
 
-        if (bounds.isEmpty()) throw new Error('DXF has empty bounds');
+        if (bounds.isEmpty()) throw new Error(`${type.toUpperCase()} has empty bounds`);
         const min = bounds.min;
         const max = bounds.max;
         const width = max.x - min.x;
@@ -47,10 +48,10 @@ export const loadOutline = (url: string): Promise<CachedOutline> => {
         const viewBox = `${min.x - padding} ${-max.y - padding} ${width + padding * 2} ${height + padding * 2}`;
         return { text, shapes, pathData: path, viewBox };
     })().catch(error => {
-        if (outlines.get(url) === pending) outlines.delete(url);
+        if (outlines.get(key) === pending) outlines.delete(key);
         throw error;
     });
-    outlines.set(url, pending);
+    outlines.set(key, pending);
     return pending;
 };
 

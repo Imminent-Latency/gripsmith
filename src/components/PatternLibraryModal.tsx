@@ -153,7 +153,7 @@ const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClo
                                     ?
                                 </span>
                             )}
-                            {preset.infoUrl && (
+                            {preset.infoUrl && category !== 'patterns' && (
                                 <a
                                     href={preset.infoUrl}
                                     target="_blank"
@@ -186,6 +186,7 @@ const PatternLibraryModal: React.FC<PatternLibraryModalProps> = ({ isOpen, onClo
                                 ) : preset.type === 'dxf' ? (
                                     <DXFThumbnail
                                         url={assetUrl(preset.category, preset.file)}
+                                        type={preset.type}
                                         alt={preset.name}
                                         className="w-full h-full"
                                     />
