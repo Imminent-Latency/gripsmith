@@ -32,7 +32,7 @@ baseline sorted in another shell false-fails on ordering alone.
 - `docs/01`…`docs/08` are the feature docs. `docs/IMPLEMENTATION-PLAN.md` is the **execution order** — 126 commits in 12
   phases, each with files, verify command and commit message; it is not a spec.
   **Precedence:** decisions of record → `00-architecture.md` → the feature doc → the plan.
-- `docs/_source/` is the verified evidence base. **Never hand-edit it.** Read the errata block atop `00-recon-report.md`;
+- `docs/_source/` is the verified evidence base. **Never hand-edit it** (new artefact files a plan row itself creates there, such as `m1-manual-pass.md`, are the one exception). Read the errata block atop `00-recon-report.md`;
   never cite `_source/00-architecture.original.md` — most of it was wrong.
 - **Read the doc section a task cites before implementing it.** Plan rows are pointers, not substitutes. Do not batch
   tasks; do not run ahead. If a doc is wrong, say so with evidence and stop — never silently deviate.
