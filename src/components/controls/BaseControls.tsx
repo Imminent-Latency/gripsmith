@@ -1,6 +1,7 @@
 import React from 'react';
+import { assetUrl } from '../../utils/assetUrl';
 import { BaseSettings } from '../../types/schemas';
-import { COLORS } from '../../constants/colors';
+import SwatchGrid from '../ui/SwatchGrid';
 import { FlipHorizontal, BookOpen } from 'lucide-react';
 import ShapeUploader from '../ShapeUploader';
 import ControlField from '../ui/ControlField';
@@ -8,7 +9,8 @@ import DebouncedInput from '../DebouncedInput';
 import ToggleButton from '../ui/ToggleButton';
 import PatternLibraryModal, { PatternPreset } from '../PatternLibraryModal';
 import { useAlert } from '../../context/AlertContext';
-import { parseShapeFile } from '../../utils/shapeLoader';
+import { loadOutline } from '../../utils/outline/outlineCache';
+import { outlineUpdate, outlineCleared } from '../../utils/outline/outlineState';
 
 interface BaseControlsProps {
   settings: BaseSettings;
@@ -26,10 +28,12 @@ const BaseControls: React.FC<BaseControlsProps> = ({
   const { size, thickness, color, cutoutShapes } = settings;
   const [fileName, setFileName] = React.useState<string | null>(null);
   const [showLibrary, setShowLibrary] = React.useState(false);
+  const [outlineRevision, setOutlineRevision] = React.useState(0);
   const { showAlert } = useAlert();
 
-  const handleOutlineLoaded = (shapes: any[], name: string | null, type?: 'dxf'|'svg'|'stl', content?: string | ArrayBuffer) => {
-      updateSettings({ cutoutShapes: shapes });
+  const handleOutlineLoaded = (shapes: any[], name: string | null, type?: 'dxf'|'svg'|'stl', content?: string | ArrayBuffer, ref: BaseSettings['outlineRef'] = name ? { kind: 'upload', presetId: null, name } : null) => {
+      updateSettings(outlineUpdate(shapes, ref));
+      setOutlineRevision(current => current + 1);
       setFileName(name);
       onOutlineLoaded(shapes);
       if (name && content && type && onOutlineAssetChanged) {
@@ -43,13 +47,14 @@ const BaseControls: React.FC<BaseControlsProps> = ({
         <ShapeUploader 
             label="Upload Outline" 
             shapes={cutoutShapes || null}
-            fileName={fileName}
+            fileName={fileName ?? settings.outlineRef?.name ?? null}
             onUpload={(loadedShapes, name, type, content) => handleOutlineLoaded(loadedShapes, name, type, content)}
             onClear={() => {
-                updateSettings({ cutoutShapes: [] });
+                updateSettings(outlineCleared());
                 setFileName(null);
                 if (onOutlineAssetChanged) onOutlineAssetChanged(null);
             }}
+            onError={(message) => showAlert({ title: 'Error Loading Outline', message, type: 'error' })}
             allowedTypes={['dxf']}
             adornment={
                 <button
@@ -69,23 +74,15 @@ const BaseControls: React.FC<BaseControlsProps> = ({
             onSelect={async (preset: PatternPreset) => {
                 setShowLibrary(false);
                 try {
-                    const response = await fetch(`/${preset.category}/${preset.file}`);
-                    if (!response.ok) throw new Error('Failed to fetch');
-                    const text = await response.text();
-                    
                     if (preset.type === 'dxf' || preset.type === 'svg') {
-                        const result = parseShapeFile(text, preset.type as 'dxf'|'svg');
-                        if (result.success) {
-                            handleOutlineLoaded(result.shapes, preset.name, preset.type, text);
-                        } else {
-                            throw new Error(result.error);
-                        }
+                        const outline = await loadOutline(assetUrl(preset.category, preset.file));
+                        handleOutlineLoaded(outline.shapes, preset.name, preset.type, outline.text, { kind: 'preset', presetId: preset.id, name: preset.name });
                     }
                 } catch (error) {
                     console.error("Failed to load outline:", error);
                     showAlert({
                         title: "Error Loading Outline",
-                        message: "Failed to load the selected outline preset.",
+                        message: error instanceof Error ? error.message : "Failed to load the selected outline preset.",
                         type: "error"
                     });
                 }
@@ -120,6 +117,7 @@ const BaseControls: React.FC<BaseControlsProps> = ({
               <div className="flex-1 min-w-0">
                 <ControlField label="Rotation (deg)" tooltip="Rotate the base outline">
                     <DebouncedInput
+                    key={outlineRevision}
                     type="number"
                     value={settings.baseOutlineRotation || 0}
                     onChange={(val) => updateSettings({ baseOutlineRotation: Number(val) })}
@@ -140,20 +138,7 @@ const BaseControls: React.FC<BaseControlsProps> = ({
           </div>
       )}
 
-      <div className="space-y-2">
-         <label className="text-sm font-medium text-gray-300">Color</label>
-         <div className="grid grid-cols-7 gap-y-2 p-1.5 bg-gray-800 rounded-lg border border-gray-700 w-full justify-items-center">
-            {Object.entries(COLORS).map(([name, value]) => (
-              <button
-                key={value}
-                onClick={() => updateSettings({ color: value })}
-                className={`w-6 h-6 rounded-md transition-all hover:scale-110 active:scale-95 ${color === value ? 'ring-2 ring-white' : 'hover:ring-1 hover:ring-white/50'}`}
-                style={{ backgroundColor: value }}
-                title={name}
-              />
-            ))}
-         </div>
-      </div>
+      <SwatchGrid value={color} onChange={value => updateSettings({ color: value })} />
     </section>
   );
 };

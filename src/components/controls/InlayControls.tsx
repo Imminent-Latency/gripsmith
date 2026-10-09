@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { assetUrl } from "../../utils/assetUrl";
 import { InlaySettings, InlayItem } from "../../types/schemas";
 import {
   Palette,
@@ -25,6 +26,9 @@ import { centerShapes, calculateInlayScale, calculateInlayOffset } from "../../u
 import { parseShapeFile } from "../../utils/shapeLoader";
 import ImageConversionModal from "../ImageConversionModal";
 import { v4 as uuidv4 } from "uuid";
+import { DEFAULT_SEED } from "../../utils/random/prng";
+import ParamField from "../params/ParamField";
+import { useParamContext } from "../../context/ParamContext";
 
 /** Shapes used for scale/position math. */
 const offsetShapesFor = (item: InlayItem): any[] => item.shapes || [];
@@ -85,6 +89,7 @@ const InlayControls: React.FC<InlayControlsProps> = ({
   }, [baseThickness]);
 
   const selectedItem = items?.find((i) => i.id === selectedInlayId);
+  const paramContext = useParamContext();
 
   // Helper to update specific item
   const updateItem = (id: string, updates: Partial<InlayItem>) => {
@@ -98,6 +103,7 @@ const InlayControls: React.FC<InlayControlsProps> = ({
   const handleAddLayer = () => {
     const newItem: InlayItem = {
       id: uuidv4(),
+      seed: DEFAULT_SEED,
       name: "New Layer",
       shapes: [],
       scale: 1,
@@ -136,6 +142,7 @@ const InlayControls: React.FC<InlayControlsProps> = ({
       const scale = calculateInlayScale(shapes, cutoutShapes || null, baseSize);
       const newItem: InlayItem = {
         id: uuidv4(),
+        seed: DEFAULT_SEED,
         name: name || "Custom Pattern",
         shapes: shapes,
         scale: scale,
@@ -274,7 +281,7 @@ const InlayControls: React.FC<InlayControlsProps> = ({
         onSelect={async (preset) => {
           setShowInlayLibrary(false);
           try {
-            const response = await fetch(`/${preset.category}/${preset.file}`);
+            const response = await fetch(assetUrl(preset.category, preset.file));
             const text = await response.text();
 
             // Use shared loader logic
@@ -435,7 +442,7 @@ const InlayControls: React.FC<InlayControlsProps> = ({
           
           
           {/* Mode Switch: Place vs Tile */}
-          <div className="space-y-2 mb-4">
+          <div role="group" aria-label="Layout Mode" className="space-y-2 mb-4">
              <label className="text-sm font-medium text-gray-300">
               Layout Mode
             </label>
@@ -649,20 +656,17 @@ const InlayControls: React.FC<InlayControlsProps> = ({
 
           <div className="flex gap-4">
             <div className="flex-1 min-w-0">
-              <ControlField
-                label="Inlay Depth (mm)"
-                tooltip={`How deep this inlay cuts into the base (max ${maxDepth}mm)`}
-              >
-                <DebouncedInput
-                  type="number"
-                  value={selectedItem.depth || 0.4}
-                  onChange={(val) => updateItem(selectedItem.id, { depth: Math.min(maxDepth, Math.max(0.1, Number(val))) })}
-                  step="0.1"
-                  min="0.1"
-                  max={maxDepth}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all outline-none"
-                />
-              </ControlField>
+              <ParamField
+                descriptor={{
+                  key: 'depth', kind: 'number', label: 'Inlay Depth (mm)', unit: 'mm',
+                  min: 0.1, max: ctx => Math.max(0.1, parseFloat((ctx.base.thickness - 0.1).toFixed(2))),
+                  step: 0.1, clamp: true, regenerates: true,
+                  tooltip: `How deep this inlay cuts into the base (max ${maxDepth}mm)`,
+                }}
+                settings={{ ...selectedItem, depth: selectedItem.depth || 0.4 }}
+                onChange={updates => updateItem(selectedItem.id, updates)}
+                ctx={paramContext}
+              />
             </div>
             <div className="flex-1 min-w-0">
               <ControlField

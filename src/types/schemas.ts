@@ -7,16 +7,24 @@ import { DEFAULT_BASE_COLOR, DEFAULT_PATTERN_COLOR } from '../constants/colors';
 const ThreeShapeSchema = z.custom<THREE.Shape[]>((val) => Array.isArray(val), "Must be an array of shapes");
 const ThreeObjectsSchema = z.custom<any[]>((val) => Array.isArray(val), "Must be an array of objects");
 
+export const OutlineRefSchema = z.object({
+    kind: z.enum(['preset', 'upload']),
+    presetId: z.string().nullable().default(null),
+    name: z.string(),
+});
+
 export const BaseSettingsSchema = z.object({
     size: z.number().default(300),
     thickness: z.number().default(0.6),
     color: z.string().default(DEFAULT_BASE_COLOR),
     cutoutShapes: ThreeShapeSchema.nullable().optional().default(null),
+    outlineRef: OutlineRefSchema.nullable().default(null),
     baseOutlineRotation: z.number().default(0),
     baseOutlineMirror: z.boolean().default(false),
 });
 
 export const InlayItemSchema = z.object({
+    seed: z.number().default(1),
     id: z.string(),
     name: z.string().optional(),
     shapes: z.array(z.any()), // Array of THREE.Shape or object wrapper
@@ -50,6 +58,7 @@ export type InlayItem = z.infer<typeof InlayItemSchema>;
 export const InlaySettingsSchema = z.object({
     items: z.array(InlayItemSchema).default([{
         id: 'default-layer',
+        seed: 1,
         name: 'Inlay Layer 1',
         shapes: [],
         scale: 1,
@@ -64,6 +73,7 @@ export const InlaySettingsSchema = z.object({
 });
 
 export const GeometrySettingsSchema = z.object({
+    seed: z.number().default(1),
     patternShapes: ThreeObjectsSchema.nullable().optional().default(null),
     patternType: z.enum(['dxf', 'svg', 'stl']).nullable().default(null),
     patternHeight: z.union([z.number(), z.string()]).default(""), // number or ''

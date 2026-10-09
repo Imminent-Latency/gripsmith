@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import type { ManifoldToplevel } from 'manifold-3d';
 import { generatePattern, PatternJob, PatternResult } from './patternPipeline';
 import { getManifold } from './manifoldModule';
+import gridMatricesJson from './__fixtures__/grid-matrices.json?raw';
 import { serializeShape, deserializeShape, serializeGeometry, deserializeGeometry } from './serialize';
 
 /** Flat-array square shape centered at origin. */
@@ -82,6 +83,37 @@ describe('generatePattern (Manifold)', () => {
 
   beforeAll(async () => {
     wasm = await getManifold();
+  });
+
+  it('reproduces a cloneable seeded random job to four decimal places', () => {
+    const job = baseJob({ seed: 1, clipToOutline: false, tilingDistribution: 'random' });
+    const cloned = structuredClone(job);
+    expect(cloned).toEqual(job);
+    const a = run(job).instanced!;
+    const b = run(cloned).instanced!;
+    expect(a).toBeDefined();
+    expect(b).toBeDefined();
+    expect(a.count).toBeGreaterThan(0);
+    expect(b.count).toBe(a.count);
+    expect(b.matrices.length).toBe(a.matrices.length);
+    a.matrices.forEach((value, i) => expect(b.matrices[i]).toBeCloseTo(value, 4));
+  });
+
+  it('changes random placement when the job seed changes', () => {
+    const a = run(baseJob({ seed: 1, clipToOutline: false, tilingDistribution: 'random' })).instanced!;
+    const b = run(baseJob({ seed: 2, clipToOutline: false, tilingDistribution: 'random' })).instanced!;
+    expect(a.count).toBeGreaterThan(0);
+    expect(b.count).toBeGreaterThan(0);
+    expect(Array.from(a.matrices)).not.toEqual(Array.from(b.matrices));
+  });
+
+  it('preserves the grid matrices captured before seeding', () => {
+    const fixture = JSON.parse(gridMatricesJson) as { count: number; matrices: number[] };
+    for (const seed of [undefined, 1, 2]) {
+      const result = run(baseJob({ clipToOutline: false, seed })).instanced!;
+      expect(result.count).toBe(fixture.count);
+      expect(Array.from(result.matrices)).toEqual(fixture.matrices);
+    }
   });
 
   it('uses the instanced fast path when no CSG is needed', () => {

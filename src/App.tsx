@@ -107,6 +107,9 @@ const App = () => {
               exportControls={
                    <OutputPanel 
                         meshRef={meshRef} 
+                        cutoutShapes={baseSettings.cutoutShapes}
+                        baseOutlineMirror={baseSettings.baseOutlineMirror}
+                        baseOutlineRotation={baseSettings.baseOutlineRotation}
                         debugMode={geometrySettings.debugMode ?? false} 
                         className="bg-transparent border-0 shadow-none p-0 !p-0"
                    />

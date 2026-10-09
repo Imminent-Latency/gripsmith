@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { eventBus } from "../utils/eventBus";
 import * as THREE from 'three';
+import { transformOutlinePoints } from '../utils/geometry/outlineTransform';
 import { generateTilePositions, getShapesBounds, TileInstance } from '../utils/patternUtils';
 import { PatternJob } from '../utils/geometry/patternPipeline';
+import { DEFAULT_SEED } from '../utils/random/prng';
 import { InlayJob, InlayJobItem } from '../utils/geometry/inlayPipeline';
 import { applyPatternResult, cleanupPatternObjects, ApplyContext } from '../utils/geometry/applyPatternResult';
 import { applyInlayResult, InlayApplyContext } from '../utils/geometry/applyInlayResult';
@@ -31,6 +33,7 @@ interface ImperativeModelProps {
   tilingOrientation?: 'none' | 'alternate' | 'random' | 'aligned';
   baseRotation?: number; // Rotates the PATTERN units
   rotationClamp?: number;
+  seed?: number;
   patternMaxHeight?: number;
   clipToOutline?: boolean;
   baseOutlineRotation?: number; // Rotates the BASE shape
@@ -78,6 +81,7 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
   tilingOrientation = 'aligned',
   baseRotation = 0,
   rotationClamp,
+  seed = DEFAULT_SEED,
   patternMaxHeight,
   clipToOutline = false,
   baseOutlineRotation = 0,
@@ -179,27 +183,7 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
       sources.forEach(shape => {
           let pts = shape.getPoints();
 
-          // 1. Mirror
-          if (baseOutlineMirror) {
-              pts = pts.map(p => new THREE.Vector2(-p.x, p.y));
-          }
-
-          // 2. Rotate
-          if (baseOutlineRotation !== 0) {
-              const rad = baseOutlineRotation * (Math.PI / 180);
-              const cos = Math.cos(rad);
-              const sin = Math.sin(rad);
-              pts = pts.map(p => new THREE.Vector2(
-                  p.x * cos - p.y * sin,
-                  p.x * sin + p.y * cos
-              ));
-          }
-
-          // 3. Enforce Winding
-          // Mirror flips winding. Explicit reverse if mirrored.
-          if (baseOutlineMirror) {
-              pts.reverse();
-          }
+          pts = transformOutlinePoints(pts, { mirror: baseOutlineMirror, rotationDeg: baseOutlineRotation });
 
           const newShape = new THREE.Shape(pts);
           filled.push(newShape);
@@ -208,24 +192,7 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
               shape.holes.forEach((h: THREE.Path) => {
                     let hPts = h.getPoints();
                     
-                    if (baseOutlineMirror) {
-                        hPts = hPts.map(p => new THREE.Vector2(-p.x, p.y));
-                    }
-                    
-                    if (baseOutlineRotation !== 0) {
-                        const rad = baseOutlineRotation * (Math.PI / 180);
-                        const cos = Math.cos(rad);
-                        const sin = Math.sin(rad);
-                        hPts = hPts.map(p => new THREE.Vector2(
-                            p.x * cos - p.y * sin,
-                            p.x * sin + p.y * cos
-                        ));
-                    }
-
-                    // 4. Enforce Winding for Holes
-                    if (baseOutlineMirror) {
-                         hPts.reverse();
-                    }
+                    hPts = transformOutlinePoints(hPts, { mirror: baseOutlineMirror, rotationDeg: baseOutlineRotation });
 
                     // Convert Path to Shape for CSG extraction
                     const holeShape = new THREE.Shape(hPts);
@@ -263,7 +230,9 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
                  'none', 
                  'horizontal',
                  null, 
-                 null
+                 null,
+                 null,
+                 item.seed ?? DEFAULT_SEED
              );
         } else {
              return [{ 
@@ -845,7 +814,7 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
             size, thickness, patternScale, patternScaleZ,
             isTiled, tileSpacing, patternMargin, holeMode,
             tilingDistribution, tilingDirection, tilingOrientation,
-            baseRotation, rotationClamp, patternMaxHeight,
+            baseRotation, rotationClamp, seed, patternMaxHeight,
             clipToOutline, maxInlayExtend,
             filledCutoutShapes: serializeShapes(filledCutoutShapes),
             holeShapes: serializeShapes(holeShapes),
@@ -897,7 +866,7 @@ const ImperativeModel = React.forwardRef((props: ImperativeModelProps, ref: Reac
   }, [
       patternScale, patternScaleZ,
       isTiled, tileSpacing, patternMargin, tilingDistribution, tilingOrientation, tilingDirection,
-      clipToOutline, displayMode, inlayItems, baseRotation, rotationClamp,
+      clipToOutline, displayMode, inlayItems, baseRotation, rotationClamp, seed,
       thickness, filledCutoutShapes, holeShapes, patternShapes, size, patternMaxHeight,
       holeMode
   ]);

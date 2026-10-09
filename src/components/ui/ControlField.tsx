@@ -6,7 +6,7 @@ interface ControlFieldProps {
   tooltip?: string;
   helperText?: string;
   error?: string;
-  children: React.ReactNode;
+  children: React.ReactNode | ((props: { id: string; describedBy?: string }) => React.ReactNode);
   className?: string;
   action?: React.ReactNode;
 }
@@ -20,11 +20,25 @@ const ControlField: React.FC<ControlFieldProps> = ({
   className = "",
   action
 }) => {
+  const generatedId = React.useId();
+  const isNativeControl = React.isValidElement<{ id?: string; 'aria-describedby'?: string }>(children)
+    && typeof children.type === 'string'
+    && ['input', 'select', 'textarea', 'button'].includes(children.type);
+  const id = isNativeControl ? children.props.id || generatedId : generatedId;
+  const describedBy = helperText || error ? `${generatedId}-description` : undefined;
+  const content = typeof children === 'function'
+    ? children({ id, describedBy })
+    : isNativeControl
+      ? React.cloneElement(children, {
+          id,
+          'aria-describedby': [children.props['aria-describedby'], describedBy].filter(Boolean).join(' ') || undefined,
+        })
+      : children;
   return (
     <div className={`space-y-1.5 ${className}`}>
       <div className="flex items-center justify-between h-5 overflow-visible">
         <div className="flex items-center">
-            <label className="text-sm font-medium text-gray-300 select-none">
+            <label htmlFor={isNativeControl || typeof children === 'function' ? id : undefined} className="text-sm font-medium text-gray-300 select-none">
             {label}
             </label>
             {tooltip && <Tooltip content={tooltip} />}
@@ -37,11 +51,11 @@ const ControlField: React.FC<ControlFieldProps> = ({
       </div>
       
       <div className="relative">
-        {children}
+        {content}
       </div>
 
       {(helperText || error) && (
-        <p className={`text-xs ${error ? 'text-red-400' : 'text-gray-500'} px-0.5`}>
+        <p id={describedBy} className={`text-xs ${error ? 'text-red-400' : 'text-gray-500'} px-0.5`}>
           {error || helperText}
         </p>
       )}

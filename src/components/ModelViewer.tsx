@@ -49,7 +49,7 @@ const ModelViewer: React.FC<ModelViewerProps> = ({
       patternShapes, patternType, patternScale, patternScaleZ,
       isTiled, tileSpacing, patternMargin, 
       tilingDistribution, tilingDirection, tilingOrientation,
-      clipToOutline, debugMode, patternColor: geomPatternColor, rotationClamp,
+      clipToOutline, debugMode, patternColor: geomPatternColor, rotationClamp, seed,
       holeMode
   } = geometrySettings;
 
@@ -478,6 +478,7 @@ const ModelViewer: React.FC<ModelViewerProps> = ({
                 tilingOrientation={tilingOrientation}
                 baseRotation={geometrySettings.baseRotation}
                 rotationClamp={rotationClamp}
+                seed={seed}
                 patternMaxHeight={geometrySettings.patternMaxHeight === '' ? undefined : Number(geometrySettings.patternMaxHeight)}
                 clipToOutline={clipToOutline}
                 holeMode={holeMode}
