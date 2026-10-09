@@ -25,6 +25,7 @@ const ToggleButton: React.FC<ToggleButtonProps> = ({
     <button
       id={id}
       aria-describedby={describedBy}
+      aria-pressed={isToggled}
       onClick={onToggle}
       title={title}
       className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${

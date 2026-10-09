@@ -158,14 +158,61 @@ describe('T5a: ControlField label associations', () => {
         expect(screen.getByRole('button', { name: 'Custom' }).id).toBe('');
     });
 
-    it('associates the loaded Base Mirror toggle and preserves its click action', () => {
+    it('exposes the loaded Base Mirror pressed state and preserves both toggle callbacks', () => {
         const updateSettings = vi.fn();
-        render(<AlertProvider><BaseControls {...baseProps} updateSettings={updateSettings} settings={{ ...defaultBaseSettings, cutoutShapes: [shape] }} /></AlertProvider>);
+        const Panel = () => {
+            const [settings, setSettings] = React.useState<React.ComponentProps<typeof BaseControls>['settings']>({ ...defaultBaseSettings, cutoutShapes: [shape], baseOutlineMirror: false });
+            return <BaseControls {...baseProps} settings={settings} updateSettings={updates => {
+                updateSettings(updates);
+                setSettings(current => ({ ...current, ...updates }));
+            }} />;
+        };
+        render(<AlertProvider><Panel /></AlertProvider>);
         const toggle = screen.getByLabelText('Mirror');
+        expect(screen.getByRole('button', { name: 'Mirror', pressed: false })).toBe(toggle);
         act(() => toggle.focus());
         expect(document.activeElement).toBe(toggle);
         fireEvent.click(toggle);
-        expect(updateSettings).toHaveBeenCalledWith({ baseOutlineMirror: true });
+        expect(screen.getByRole('button', { name: 'Mirror', pressed: true })).toBe(toggle);
+        expect(toggle.textContent).toBe('Enabled');
+        fireEvent.click(toggle);
+        expect(screen.getByRole('button', { name: 'Mirror', pressed: false })).toBe(toggle);
+        expect(toggle.textContent).toBe('Disabled');
+        expect(document.activeElement).toBe(toggle);
+        expect(updateSettings).toHaveBeenCalledTimes(2);
+        expect(updateSettings).toHaveBeenNthCalledWith(1, { baseOutlineMirror: true });
+        expect(updateSettings).toHaveBeenNthCalledWith(2, { baseOutlineMirror: false });
+    });
+
+    it('exposes the selected Inlay Mirror pressed state and preserves both item updates', () => {
+        const updateSettings = vi.fn();
+        const initial = { items: defaultInlaySettings.items.map(item => ({ ...item, mirror: false })) };
+        const Panel = () => {
+            const [settings, setSettings] = React.useState(initial);
+            return <ParamProvider value={{ base: defaultBaseSettings, inlay: settings, geometry: defaultGeometrySettings, selectedInlayItem: settings.items[0] }}>
+                <InlayControls {...inlayProps} settings={settings} updateSettings={updates => {
+                    updateSettings(updates);
+                    setSettings(current => ({ ...current, ...updates }));
+                }} />
+            </ParamProvider>;
+        };
+        render(<AlertProvider><Panel /></AlertProvider>);
+        const toggle = screen.getByLabelText('Mirror');
+        expect(screen.getByRole('button', { name: 'Mirror', pressed: false })).toBe(toggle);
+        act(() => toggle.focus());
+        expect(document.activeElement).toBe(toggle);
+        fireEvent.click(toggle);
+        expect(screen.getByRole('button', { name: 'Mirror', pressed: true })).toBe(toggle);
+        expect(toggle.textContent).toBe('Enabled');
+        fireEvent.click(toggle);
+        expect(screen.getByRole('button', { name: 'Mirror', pressed: false })).toBe(toggle);
+        expect(toggle.textContent).toBe('Disabled');
+        expect(document.activeElement).toBe(toggle);
+        expect(updateSettings).toHaveBeenCalledTimes(2);
+        expect(updateSettings).toHaveBeenNthCalledWith(1, {
+            items: initial.items.map(item => item.id === inlayProps.selectedInlayId ? { ...item, mirror: true } : item),
+        });
+        expect(updateSettings).toHaveBeenNthCalledWith(2, initial);
     });
 
     it('describes the resolved depth maximum through context changes, even when the legacy prop differs', () => {
