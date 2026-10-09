@@ -29,7 +29,7 @@ export const PRESETS: PatternPreset[] = [
     { id: 'pattern/mitsi', name: 'Mitsi', file: 'mitsi.stl', type: 'stl', category: 'patterns' },
     { id: 'pattern/polypore-single', name: 'Polypore Single', file: 'polypore-single.stl', type: 'stl', category: 'patterns' },
     { id: 'pattern/polypore-flower', name: 'Polypore Flower', file: 'polypore-flower.stl', type: 'stl', category: 'patterns' },
-    
+
     // Inlays
     { id: 'inlay/grippysheet', name: 'GrippySheet', file: 'grippysheet.svg', type: 'svg', category: 'inlays', keepOriginalColors: true },
     { id: 'inlay/grippysheetalt', name: 'GrippySheet Alt', file: 'grippysheetalt.svg', type: 'svg', category: 'inlays', keepOriginalColors: true },
